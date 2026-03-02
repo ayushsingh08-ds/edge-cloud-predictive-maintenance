@@ -1,0 +1,97 @@
+# ============================================
+# PREDICTIVE MAINTENANCE SYSTEM
+# Python Dependencies
+# ============================================
+
+# ----------------
+# Messaging
+# ----------------
+pika==1.3.2                    # RabbitMQ client
+
+# ----------------
+# Data Processing
+# ----------------
+numpy==1.24.3
+pandas==2.0.3
+scikit-learn==1.3.0
+scipy==1.11.2
+
+# ----------------
+# Deep Learning
+# ----------------
+tensorflow==2.13.0
+keras==2.13.1
+
+# Alternative: PyTorch (uncomment if preferred)
+# torch==2.0.1
+# torchvision==0.15.2
+
+# ----------------
+# Visualization
+# ----------------
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.16.1
+
+# ----------------
+# Dashboard
+# ----------------
+streamlit==1.26.0
+streamlit-autorefresh==0.0.1   # For real-time updates
+
+# ----------------
+# Utilities
+# ----------------
+python-dotenv==1.0.0           # Environment variables
+pyyaml==6.0.1                  # YAML config files
+jsonschema==4.19.0             # JSON schema validation
+requests==2.31.0               # HTTP requests
+
+# ----------------
+# Logging
+# ----------------
+loguru==0.7.0                  # Better logging
+colorlog==6.7.0                # Colored console logs
+
+# ----------------
+# Testing
+# ----------------
+pytest==7.4.0
+pytest-cov==4.1.0
+pytest-mock==3.11.1
+
+# ----------------
+# Jupyter Notebooks
+# ----------------
+jupyter==1.0.0
+notebook==7.0.2
+ipykernel==6.25.1
+ipywidgets==8.1.0
+
+# ----------------
+# Data Generation
+# ----------------
+faker==19.6.2                  # Synthetic data generation
+
+# ----------------
+# Model Deployment
+# ----------------
+joblib==1.3.2                  # Model serialization
+
+# ----------------
+# Monitoring
+# ----------------
+psutil==5.9.5                  # System monitoring
+prometheus-client==0.17.1      # Metrics export (optional)
+
+# ----------------
+# Code Quality (optional)
+# ----------------
+black==23.7.0                  # Code formatter
+flake8==6.1.0                  # Linter
+mypy==1.5.1                    # Type checker
+
+# ----------------
+# Threading & Async
+# ----------------
+threading-timer==0.0.1
