@@ -91,7 +91,3 @@ black==23.7.0                  # Code formatter
 flake8==6.1.0                  # Linter
 mypy==1.5.1                    # Type checker
 
-# ----------------
-# Threading & Async
-# ----------------
-threading-timer==0.0.1
