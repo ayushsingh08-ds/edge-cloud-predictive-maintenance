@@ -1,4 +1,4 @@
-# 🏭 Predictive Maintenance System
+#  Predictive Maintenance System
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![TensorFlow 2.13](https://img.shields.io/badge/TensorFlow-2.13-orange.svg)](https://www.tensorflow.org/)
@@ -8,7 +8,7 @@ Real-time predictive maintenance system with **edge AI**, **RUL prediction**, **
 
 ---
 
-## 🎯 Features
+##  Features
 
 ✅ **Edge Anomaly Detection** - Real-time detection with <100ms latency  
 ✅ **RUL Prediction** - LSTM-based remaining useful life estimation  
@@ -20,7 +20,7 @@ Real-time predictive maintenance system with **edge AI**, **RUL prediction**, **
 
 ---
 
-## 📊 System Architecture
+##   System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -47,7 +47,7 @@ Real-time predictive maintenance system with **edge AI**, **RUL prediction**, **
 
 ---
 
-## 🛠 Tech Stack
+##   Tech Stack
 
 | Component           | Technology                     |
 | ------------------- | ------------------------------ |
@@ -60,7 +60,7 @@ Real-time predictive maintenance system with **edge AI**, **RUL prediction**, **
 
 ---
 
-## 🚀 Quick Start
+##   Quick Start
 
 ### Prerequisites
 
@@ -163,7 +163,7 @@ Open browser to: **http://localhost:8501**
 
 ---
 
-## 📁 Project Structure
+##   Project Structure
 
 ```
 predictive-maintenance-system/
@@ -238,7 +238,7 @@ predictive-maintenance-system/
 
 ---
 
-## 🎓 Key Concepts
+##   Key Concepts
 
 ### Event-Driven Architecture
 
@@ -273,7 +273,7 @@ The system uses **RabbitMQ topics** for communication:
 
 ---
 
-## 🧪 Testing
+##   Testing
 
 ### Run All Tests
 
@@ -309,7 +309,7 @@ python edge/simulator/sensor_simulator.py --mode=degrading
 
 ---
 
-## 📈 Performance Metrics
+##   Performance Metrics
 
 | Metric                 | Target    | Actual    |
 | ---------------------- | --------- | --------- |
@@ -343,7 +343,7 @@ RETRAIN_MIN_SAMPLES=500
 
 ---
 
-## 🐛 Troubleshooting
+##   Troubleshooting
 
 ### RabbitMQ Connection Failed
 
@@ -381,7 +381,7 @@ python scripts/download_models.py
 
 ---
 
-## 🚢 Deployment
+##   Deployment
 
 ### Docker Deployment (Coming Soon)
 
@@ -395,14 +395,14 @@ See [docs/deployment_guide.md](docs/deployment_guide.md) for AWS/GCP/Azure deplo
 
 ---
 
-## 👥 Team
+##   Team
 
 - **AI/ML Engineer** - Model training, drift detection, retraining
 - **Platform Engineer** - Infrastructure, integration, dashboard
 
 ---
 
-## 📅 Development Timeline
+##   Development Timeline
 
 ✅ Week 1: Core pipeline (sensor → adapter → anomaly → alert)  
 ✅ Week 2: RUL prediction, drift detection, dashboard, retraining
@@ -411,7 +411,7 @@ See [docs/deployment_guide.md](docs/deployment_guide.md) for AWS/GCP/Azure deplo
 
 ---
 
-## 🔮 Future Improvements
+##   Future Improvements
 
 - [ ] Multi-sensor support
 - [ ] Advanced ensemble models
@@ -424,13 +424,13 @@ See [docs/deployment_guide.md](docs/deployment_guide.md) for AWS/GCP/Azure deplo
 
 ---
 
-## 📝 License
+##   License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+##   Acknowledgments
 
 Built as a demonstration of production-ready MLOps practices combining:
 
@@ -441,7 +441,7 @@ Built as a demonstration of production-ready MLOps practices combining:
 
 ---
 
-## 📞 Contact
+##   Contact
 
 **GitHub:** [@ayushsingh08-ds](https://github.com/ayushsingh08-ds)
 
