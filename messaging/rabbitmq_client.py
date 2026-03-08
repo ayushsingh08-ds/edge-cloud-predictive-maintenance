@@ -4,31 +4,30 @@ import json
 
 class RabbitMQClient:
 
-    def __init__(self, host='localhost', port=5672, username='admin', password='admin'):
-        self.host = host
-        self.port = port
-        self.username = username
-        self.password = password
-        self.connection = None
-        self.channel = None
+    def __init__(self, host="localhost"):
+        credentials = pika.PlainCredentials("admin", "admin")
 
-    def connect(self):
-
-        credentials = pika.PlainCredentials(self.username, self.password)
-
-        params = pika.ConnectionParameters(
-            host=self.host,
-            port=self.port,
+        parameters = pika.ConnectionParameters(
+            host=host,
+            port=5672,
             credentials=credentials
         )
 
-        self.connection = pika.BlockingConnection(params)
+        self.connection = pika.BlockingConnection(parameters)
         self.channel = self.connection.channel()
 
+        # create exchange
         self.channel.exchange_declare(
-            exchange='events_exchange',
-            exchange_type='topic',
+            exchange="sensor_exchange",
+            exchange_type="topic",
             durable=True
         )
 
-        print("Connected to RabbitMQ")
+    def publish(self, topic, message):
+        self.channel.basic_publish(
+            exchange="sensor_exchange",
+            routing_key=topic,
+            body=json.dumps(message)
+        )
+
+        print(f"[x] Sent {topic}: {message}")
