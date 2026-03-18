@@ -1,7 +1,6 @@
 TOPICS = [
-    "sensor.temperature",
-    "sensor.vibration",
-    "sensor.pressure",
+    "sensor.raw",
+    "sensor.cleaned",
     "prediction.result",
     "alerts.failure"
 ]

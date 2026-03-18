@@ -26,9 +26,11 @@ class SensorSimulator:
             self.value += random.uniform(5, 10)
 
         event = {
-            "sensor_id": self.sensor_id,
+            "machine_id": "FD001",  # Using the dataset ID
+            "temperature": round(self.value + random.uniform(50, 70), 2),  # Base temp around 60-70
+            "vibration": round(max(0, self.value + random.uniform(0.1, 0.5)), 2),  # Vibration 0.1-0.5
+            "pressure": round(self.value + random.uniform(10, 20), 2),  # Pressure around 10-20
             "timestamp": datetime.utcnow().isoformat(),
-            "value": round(self.value, 2),
             "mode": self.mode
         }
 

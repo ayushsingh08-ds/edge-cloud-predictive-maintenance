@@ -5,7 +5,6 @@ from config.topics import TOPICS
 def setup_topics():
 
     client = RabbitMQClient()
-    client.connect()
 
     for topic in TOPICS:
         # declare a queue for each topic
@@ -14,7 +13,7 @@ def setup_topics():
         client.channel.queue_declare(queue=queue_name, durable=True)
 
         client.channel.queue_bind(
-            exchange="events_exchange",
+            exchange="sensor_exchange",
             queue=queue_name,
             routing_key=topic
         )
