@@ -1,10 +1,15 @@
 import pika
 import json
+import time
+import logging
+
+# Suppress pika debug logs
+logging.getLogger('pika').setLevel(logging.WARNING)
 
 
 class RabbitMQClient:
 
-    def __init__(self, host="localhost"):
+    def __init__(self, host="localhost", max_retries=3):
         credentials = pika.PlainCredentials("admin", "admin123")
 
         parameters = pika.ConnectionParameters(
@@ -13,15 +18,28 @@ class RabbitMQClient:
             credentials=credentials
         )
 
-        self.connection = pika.BlockingConnection(parameters)
-        self.channel = self.connection.channel()
+        self.connection = None
+        self.channel = None
+        
+        # Try to connect with retries
+        for attempt in range(max_retries):
+            try:
+                self.connection = pika.BlockingConnection(parameters)
+                self.channel = self.connection.channel()
 
-        # create exchange
-        self.channel.exchange_declare(
-            exchange="sensor_exchange",
-            exchange_type="topic",
-            durable=True
-        )
+                # create exchange
+                self.channel.exchange_declare(
+                    exchange="sensor_exchange",
+                    exchange_type="topic",
+                    durable=True
+                )
+                pass  # Connection successful, silent
+                return
+            except pika.exceptions.AMQPConnectionError as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    raise
 
     def publish(self, topic, message):
         self.channel.basic_publish(
@@ -29,8 +47,6 @@ class RabbitMQClient:
             routing_key=topic,
             body=json.dumps(message)
         )
-
-        print(f"[x] Sent {topic}: {message}")
 
     def subscribe(self, topic, callback):
         # Create exclusive queue
@@ -51,7 +67,6 @@ class RabbitMQClient:
             auto_ack=True
         )
 
-        print(f"Subscribed to {topic}, waiting for messages...")
         self.channel.start_consuming()
 
     def close(self):
