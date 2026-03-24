@@ -1,0 +1,17 @@
+# Core dependencies (required for edge pipeline)
+pika==1.3.2
+python-dotenv==1.0.1
+scikit-learn==1.6.1
+numpy==1.26.4
+pandas==2.3.3
+streamlit==1.43.2
+SQLAlchemy==2.0.38
+psycopg2==2.9.10
+fastapi==0.116.1
+uvicorn==0.35.0
+httpx==0.27.2
+
+# Optional: RUL inference (TensorFlow requires Python 3.10 or lower)
+# Uncomment below if you need RUL prediction or model optimization
+# tensorflow==2.13.0
+
