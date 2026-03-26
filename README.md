@@ -157,7 +157,7 @@ python cloud/services/retrain_service.py
 streamlit run dashboard/app.py
 ```
 
-### 6. Access Dashboard
+### 6. Access the Dashboard
 
 Open browser to: **http://localhost:8501**
 
