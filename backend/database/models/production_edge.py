@@ -1,6 +1,6 @@
 """Production edge ORM model."""
 
-from sqlalchemy import Float, ForeignKey, Integer
+from sqlalchemy import Float, ForeignKey, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -25,3 +25,4 @@ class ProductionEdge(Base):
     distance: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     travel_time: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     capacity: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    waypoints: Mapped[list[dict]] = mapped_column(JSON, nullable=True, default=list)

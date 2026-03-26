@@ -1,7 +1,15 @@
 from collections import deque, defaultdict
 import json
 import logging
+from pathlib import Path
 from statistics import mean, pstdev
+import sys
+
+# Allow running this file directly via script path by exposing backend root.
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from messaging.rabbitmq_client import RabbitMQClient
 
 # Buffer: last 50 readings per sensor

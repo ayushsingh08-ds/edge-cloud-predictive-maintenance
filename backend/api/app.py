@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import alerts, analytics, machines, maintenance, production, twin
+from api.routes import alerts, analytics, layout, machines, maintenance, production, twin, simulation
 from api.websocket import router as websocket_router
 
 
@@ -28,7 +35,9 @@ app.add_middleware(
 app.include_router(machines.router)
 app.include_router(maintenance.router)
 app.include_router(production.router)
+app.include_router(layout.router)
 app.include_router(twin.router)
+app.include_router(simulation.router)
 app.include_router(analytics.router)
 app.include_router(alerts.router)
 app.include_router(websocket_router)

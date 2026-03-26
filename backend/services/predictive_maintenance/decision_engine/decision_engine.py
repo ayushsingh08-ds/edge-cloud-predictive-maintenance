@@ -2,7 +2,15 @@ import json
 import logging
 import time
 import os
+from pathlib import Path
+import sys
 from datetime import datetime
+
+# Allow running this file directly via script path by exposing backend root.
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from messaging.rabbitmq_client import RabbitMQClient
 
 # Setup metrics logging
@@ -181,3 +189,13 @@ class DecisionEngine:
             auto_ack=True,
         )
         self.client.channel.start_consuming()
+
+
+if __name__ == "__main__":
+    engine = DecisionEngine()
+    try:
+        engine.start()
+    except KeyboardInterrupt:
+        print("\n[!] Decision Engine stopped by user")
+    finally:
+        engine.client.close()

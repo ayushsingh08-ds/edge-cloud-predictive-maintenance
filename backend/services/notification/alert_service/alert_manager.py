@@ -1,7 +1,15 @@
 import json
 import logging
 import os
+from pathlib import Path
+import sys
 from datetime import datetime
+
+# Allow running this file directly via script path by exposing backend root.
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from messaging.rabbitmq_client import RabbitMQClient
 
 # Setup alert logging
@@ -86,3 +94,13 @@ class AlertManager:
                 print(f"[ERROR] {error_msg}")
         
         self.client.subscribe("maintenance.alert", callback)
+
+
+if __name__ == "__main__":
+    manager = AlertManager()
+    try:
+        manager.start()
+    except KeyboardInterrupt:
+        print("\n[!] Alert Manager stopped by user")
+    finally:
+        manager.client.close()

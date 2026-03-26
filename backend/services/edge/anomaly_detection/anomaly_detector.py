@@ -2,7 +2,15 @@ import json
 import logging
 import time
 import os
+from pathlib import Path
+import sys
 from datetime import datetime, timezone
+
+# Allow running this file directly via script path by exposing backend root.
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from messaging.rabbitmq_client import RabbitMQClient
 
 # Setup metrics logging

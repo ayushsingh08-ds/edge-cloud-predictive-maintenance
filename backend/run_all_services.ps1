@@ -84,22 +84,100 @@ function Start-ServiceTerminal {
     )
 }
 
-# Best effort: start RabbitMQ container if it exists.
+# Best effort: start RabbitMQ container if it exists, then fallback to compose service.
+$rabbitStarted = $false
 try {
-    docker start rabbitmq-cloud | Out-Null
+    docker start rabbitmq | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        $rabbitStarted = $true
+        Write-Host "RabbitMQ container started: rabbitmq"
+    }
 } catch {
-    Write-Host "RabbitMQ container start skipped. Ensure broker is running on localhost:5672"
+    $composeFile = Join-Path (Split-Path -Parent $ProjectRoot) "docker\docker-compose.yml"
+    if (Test-Path $composeFile) {
+        try {
+            docker compose -f $composeFile up -d rabbitmq | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                $rabbitStarted = $true
+                Write-Host "RabbitMQ started via docker compose service: rabbitmq"
+            }
+        } catch {
+            Write-Host "RabbitMQ startup failed via both docker start and docker compose. Ensure broker is available on localhost:5672"
+        }
+    } else {
+        Write-Host "RabbitMQ container start skipped. Compose file not found and broker must be running on localhost:5672"
+    }
 }
 
-Start-ServiceTerminal -Title "Alert Manager" -RunCommand "& '$PythonExe' -u '$ProjectRoot\scripts\run_alert_manager.py'"
-Start-ServiceTerminal -Title "Decision Engine" -RunCommand "& '$PythonExe' -u '$ProjectRoot\scripts\run_decision_engine.py'"
-Start-ServiceTerminal -Title "Anomaly Detector" -RunCommand "& '$PythonExe' -u -m services.edge.anomaly_detection.anomaly_detector"
-Start-ServiceTerminal -Title "Data Adapter" -RunCommand "& '$PythonExe' -u '$ProjectRoot\scripts\run_adapter.py'"
-Start-ServiceTerminal -Title "RUL Predictor" -RunCommand "& '$PythonExe' -u '$ProjectRoot\scripts\run_rul_predictor.py'"
+if (-not $rabbitStarted) {
+    $composeFile = Join-Path (Split-Path -Parent $ProjectRoot) "docker\docker-compose.yml"
+    if (Test-Path $composeFile) {
+        docker compose -f $composeFile up -d rabbitmq | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $rabbitStarted = $true
+            Write-Host "RabbitMQ started via docker compose service: rabbitmq"
+        } else {
+            Write-Host "RabbitMQ is not running. Please start broker manually and verify localhost:5672."
+        }
+    }
+}
+
+function Start-ServiceScript {
+    param(
+        [string]$Title,
+        [string]$ScriptRelativePath,
+        [string]$ExtraArgs = ""
+    )
+
+    $scriptPath = Join-Path $ProjectRoot $ScriptRelativePath
+    if (-not (Test-Path $scriptPath)) {
+        Write-Host "Missing service script: $ScriptRelativePath"
+        return $false
+    }
+
+    # Run service files as modules so top-level package imports (e.g. messaging.*) resolve reliably.
+    $moduleName = ($ScriptRelativePath -replace '/', '.' -replace '\\', '.') -replace '\.py$', ''
+    $command = "& '$PythonExe' -u -m $moduleName"
+    if (-not [string]::IsNullOrWhiteSpace($ExtraArgs)) {
+        $command = "$command $ExtraArgs"
+    }
+
+    Start-ServiceTerminal -Title $Title -RunCommand $command
+    return $true
+}
+
+function Start-ServiceModule {
+    param(
+        [string]$Title,
+        [string]$ModuleName
+    )
+
+    $modulePath = "$($ModuleName.Replace('.', '\\')).py"
+    $moduleFile = Join-Path $ProjectRoot $modulePath
+    if (-not (Test-Path $moduleFile)) {
+        Write-Host "Missing service module file: $modulePath"
+        return $false
+    }
+
+    $command = "& '$PythonExe' -u -m $ModuleName"
+    Start-ServiceTerminal -Title $Title -RunCommand $command
+    return $true
+}
+
+$startedServices = 0
+if (Start-ServiceScript -Title "Alert Manager" -ScriptRelativePath "services\notification\alert_service\alert_manager.py") { $startedServices++ }
+if (Start-ServiceScript -Title "Decision Engine" -ScriptRelativePath "services\predictive_maintenance\decision_engine\decision_engine.py") { $startedServices++ }
+if (Start-ServiceScript -Title "Anomaly Detector" -ScriptRelativePath "services\edge\anomaly_detection\anomaly_detector.py") { $startedServices++ }
+if (Start-ServiceScript -Title "Data Adapter" -ScriptRelativePath "services\edge\data_adapter\data_adapter.py") { $startedServices++ }
+if (Start-ServiceScript -Title "RUL Predictor" -ScriptRelativePath "services\predictive_maintenance\rul_prediction\rul_predictor.py") { $startedServices++ }
 
 # Give consumers a moment before starting producer.
 Start-Sleep -Seconds 2
-Start-ServiceTerminal -Title "Sensor Simulator" -RunCommand "& '$PythonExe' -u '$ProjectRoot\scripts\run_sensor_simulator.py' --mode $Mode"
+if (Start-ServiceScript -Title "Sensor Simulator" -ScriptRelativePath "services\simulation\sensor_simulator\sensor_simulator.py" -ExtraArgs "--mode $Mode") { $startedServices++ }
+
+if ($startedServices -eq 0) {
+    Write-Error "No service launch targets were started. Verify script/module paths in run_all_services.ps1 before retrying."
+}
 
 # Start integration test scripts we added for new backend modules.
 $testScripts = @(
