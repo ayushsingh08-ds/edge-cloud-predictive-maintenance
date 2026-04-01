@@ -501,547 +501,62 @@ Auto-generated interactive docs available at:
 
 ---
 
-## 📱 Flutter Frontend Integration
+## ⚡ Next Steps for Frontend Integration
 
-This section provides comprehensive guidance for integrating the FastAPI backend with a Flutter frontend application.
-
-### 1. **Setup Flutter Dependencies**
-
-Add the following to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  http: ^1.2.0 # HTTP client for REST API calls
-  web_socket_channel: ^2.4.0 # WebSocket support for real-time updates
-  provider: ^6.0.0 # State management (optional)
-  json_annotation: ^4.8.0 # JSON serialization
-  json_serializable: ^6.6.0 # Code generation for JSON
-  intl: ^0.19.0 # Date/time formatting
-
-dev_dependencies:
-  build_runner: ^2.4.0 # Code generation
-  json_serializable: ^6.6.0
-```
-
-### 2. **API Client Setup**
-
-Create an API client class for centralized API communication:
-
-```dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:web_socket_channel/web_socket_channel.dart';
-
-class ApiClient {
-  static const String baseUrl = 'http://localhost:8000';
-  static const String wsBaseUrl = 'ws://localhost:8000';
-
-  // HTTP Client
-  final http.Client _client = http.Client();
-
-  // WebSocket Channels
-  WebSocketChannel? _dashboardChannel;
-  WebSocketChannel? _simulationChannel;
-
-  // Headers for authenticated requests (add JWT if needed)
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    // 'Authorization': 'Bearer $token', // Add if using JWT
-  };
-
-  // Dispose resources
-  void dispose() {
-    _dashboardChannel?.sink.close();
-    _simulationChannel?.sink.close();
-    _client.close();
-  }
-}
-```
-
-### 3. **REST API Integration**
-
-#### Machines API
-
-```dart
-class MachineService extends ApiClient {
-  Future<List<Machine>> getMachines() async {
-    try {
-      final response = await _client.get(
-        Uri.parse('$baseUrl/api/machines/'),
-        headers: _headers,
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Machine.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load machines: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network error: $e');
-    }
-  }
-
-  Future<Machine> getMachine(int machineId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/machines/$machineId'),
-      headers: _headers,
-    );
-
-    if (response.statusCode == 200) {
-      return Machine.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to load machine');
-    }
-  }
-}
-```
-
-#### Jobs API
-
-```dart
-class JobService extends ApiClient {
-  Future<JobQueueResponse> getJobQueue() async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/jobs/queue'),
-      headers: _headers,
-    );
-
-    if (response.statusCode == 200) {
-      return JobQueueResponse.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to load job queue');
-    }
-  }
-
-  Future<JobStatus> getJobStatus(int jobId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/jobs/$jobId'),
-      headers: _headers,
-    );
-
-    if (response.statusCode == 200) {
-      return JobStatus.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to load job status');
-    }
-  }
-}
-```
-
-#### Simulation API
-
-```dart
-class SimulationService extends ApiClient {
-  Future<SimulationResponse> runSimulation(SimulationParams params) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/simulation/run'),
-      headers: _headers,
-      body: json.encode(params.toJson()),
-    );
-
-    if (response.statusCode == 200) {
-      return SimulationResponse.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to run simulation');
-    }
-  }
-
-  Future<SimulationResult> getSimulationResult(String simulationId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/simulation/$simulationId'),
-      headers: _headers,
-    );
-
-    if (response.statusCode == 200) {
-      return SimulationResult.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to load simulation result');
-    }
-  }
-}
-```
-
-### 4. **WebSocket Real-Time Updates**
-
-#### Dashboard Live Updates
-
-```dart
-class WebSocketService extends ApiClient {
-  Stream<Map<String, dynamic>> getDashboardStream() {
-    _dashboardChannel = WebSocketChannel.connect(
-      Uri.parse('$wsBaseUrl/ws/events'),
-    );
-
-    return _dashboardChannel!.stream.map((message) {
-      return json.decode(message as String) as Map<String, dynamic>;
-    });
-  }
-
-  Stream<Map<String, dynamic>> getSimulationStream(String simulationId) {
-    _simulationChannel = WebSocketChannel.connect(
-      Uri.parse('$wsBaseUrl/ws/simulation/$simulationId'),
-    );
-
-    return _simulationChannel!.stream.map((message) {
-      return json.decode(message as String) as Map<String, dynamic>;
-    });
-  }
-}
-```
-
-#### Usage in Flutter Widget
-
-```dart
-class DashboardScreen extends StatefulWidget {
-  @override
-  _DashboardScreenState createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  final WebSocketService _wsService = WebSocketService();
-  StreamSubscription? _subscription;
-  Map<String, dynamic>? _latestData;
-
-  @override
-  void initState() {
-    super.initState();
-    _connectToDashboard();
-  }
-
-  void _connectToDashboard() {
-    _subscription = _wsService.getDashboardStream().listen(
-      (data) {
-        setState(() {
-          _latestData = data;
-        });
-      },
-      onError: (error) {
-        print('WebSocket error: $error');
-        // Handle reconnection logic
-      },
-      onDone: () {
-        print('WebSocket connection closed');
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    _wsService.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Dashboard')),
-      body: _latestData != null
-          ? Column(
-              children: [
-                Text('Completed Simulations: ${_latestData!['completed_simulations']}'),
-                Text('Latest Simulation: ${_latestData!['latest_simulation']}'),
-              ],
-            )
-          : CircularProgressIndicator(),
-    );
-  }
-}
-```
-
-### 5. **Data Models (Dart Classes)**
-
-Create data classes for JSON serialization:
-
-```dart
-// machine.dart
-import 'package:json_annotation/json_annotation.dart';
-
-part 'machine.g.dart';
-
-@JsonSerializable()
-class Machine {
-  final int machineId;
-  final String name;
-  final String state;
-  final int queueLength;
-  final MachineHealth health;
-  final Map<String, dynamic> latestSensors;
-  final double utilization;
-  final double downtimeHours;
-
-  Machine({
-    required this.machineId,
-    required this.name,
-    required this.state,
-    required this.queueLength,
-    required this.health,
-    required this.latestSensors,
-    required this.utilization,
-    required this.downtimeHours,
-  });
-
-  factory Machine.fromJson(Map<String, dynamic> json) => _$MachineFromJson(json);
-  Map<String, dynamic> toJson() => _$MachineToJson(this);
-}
-
-@JsonSerializable()
-class MachineHealth {
-  final double healthIndex;
-  final double rulHours;
-  final int failureCount;
-
-  MachineHealth({
-    required this.healthIndex,
-    required this.rulHours,
-    required this.failureCount,
-  });
-
-  factory MachineHealth.fromJson(Map<String, dynamic> json) => _$MachineHealthFromJson(json);
-  Map<String, dynamic> toJson() => _$MachineHealthToJson(this);
-}
-```
-
-```dart
-// simulation.dart
-import 'package:json_annotation/json_annotation.dart';
-
-part 'simulation.g.dart';
-
-@JsonSerializable()
-class SimulationParams {
-  final String policy;
-  final double durationHours;
-  final int numMachines;
-  final double arrivalRate;
-  final bool enableFailures;
-  final int? randomSeed;
-
-  SimulationParams({
-    required this.policy,
-    this.durationHours = 8.0,
-    this.numMachines = 3,
-    this.arrivalRate = 6.0,
-    this.enableFailures = true,
-    this.randomSeed,
-  });
-
-  factory SimulationParams.fromJson(Map<String, dynamic> json) => _$SimulationParamsFromJson(json);
-  Map<String, dynamic> toJson() => _$SimulationParamsToJson(this);
-}
-
-@JsonSerializable()
-class SimulationResponse {
-  final String simulationId;
-  final String status;
-  final Map<String, dynamic> parameters;
-  final Map<String, dynamic> metrics;
-
-  SimulationResponse({
-    required this.simulationId,
-    required this.status,
-    required this.parameters,
-    required this.metrics,
-  });
-
-  factory SimulationResponse.fromJson(Map<String, dynamic> json) => _$SimulationResponseFromJson(json);
-  Map<String, dynamic> toJson() => _$SimulationResponseToJson(this);
-}
-```
-
-### 6. **State Management with Provider**
-
-```dart
-// app_state.dart
-import 'package:flutter/foundation.dart';
-
-class AppState extends ChangeNotifier {
-  List<Machine> _machines = [];
-  JobQueueResponse? _jobQueue;
-  Map<String, dynamic>? _dashboardData;
-
-  List<Machine> get machines => _machines;
-  JobQueueResponse? get jobQueue => _jobQueue;
-  Map<String, dynamic>? get dashboardData => _dashboardData;
-
-  void updateMachines(List<Machine> machines) {
-    _machines = machines;
-    notifyListeners();
-  }
-
-  void updateJobQueue(JobQueueResponse queue) {
-    _jobQueue = queue;
-    notifyListeners();
-  }
-
-  void updateDashboardData(Map<String, dynamic> data) {
-    _dashboardData = data;
-    notifyListeners();
-  }
-}
-```
-
-### 7. **Error Handling & Retry Logic**
-
-```dart
-class ApiException implements Exception {
-  final String message;
-  final int? statusCode;
-
-  ApiException(this.message, {this.statusCode});
-
-  @override
-  String toString() => 'ApiException: $message (Status: $statusCode)';
-}
-
-class RetryHelper {
-  static Future<T> retry<T>(
-    Future<T> Function() function, {
-    int maxRetries = 3,
-    Duration delay = const Duration(seconds: 1),
-  }) async {
-    int attempts = 0;
-    while (attempts < maxRetries) {
-      try {
-        return await function();
-      } catch (e) {
-        attempts++;
-        if (attempts >= maxRetries) rethrow;
-        await Future.delayed(delay * attempts);
-      }
-    }
-    throw Exception('Max retries exceeded');
-  }
-}
-```
-
-### 8. **Complete Flutter App Example**
-
-```dart
-// main.dart
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'services/api_client.dart';
-import 'screens/dashboard_screen.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AppState()),
-        Provider(create: (_) => ApiClient()),
-      ],
-      child: MaterialApp(
-        title: 'Predictive Maintenance',
-        theme: ThemeData(primarySwatch: Colors.blue),
-        home: DashboardScreen(),
-      ),
-    );
-  }
-}
-```
-
-### 9. **Testing API Integration**
-
-```dart
-// test/api_test.dart
-import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:mockito/mockito.dart';
-
-class MockClient extends Mock implements http.Client {}
-
-void main() {
-  group('API Integration Tests', () {
-    test('should fetch machines successfully', () async {
-      final mockClient = MockClient();
-      final machineService = MachineService(client: mockClient);
-
-      when(mockClient.get(any, headers: anyNamed('headers')))
-          .thenAnswer((_) async => http.Response('[]', 200));
-
-      final machines = await machineService.getMachines();
-      expect(machines, isEmpty);
-    });
-  });
-}
-```
-
-### 10. **Deployment Considerations**
-
-#### CORS Configuration
-
-The backend already includes CORS configuration for Flutter development. For production:
-
-```python
-# In api/main.py
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://your-flutter-web-domain.com",
-        "com.yourcompany.app",  # iOS
-        "com.yourcompany.app",  # Android
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-#### Environment Variables
-
-Create environment configurations for different deployments:
-
-```dart
-// config.dart
-class Config {
-  static const String apiUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://localhost:8000',
-  );
-
-  static const String wsUrl = String.fromEnvironment(
-    'WS_URL',
-    defaultValue: 'ws://localhost:8000',
-  );
-}
-```
-
-#### Build Commands
+### 1. Install Frontend Dependencies
 
 ```bash
-# Android APK
-flutter build apk --release
+npm install axios  # or your preferred HTTP client
+```
 
-# iOS (on macOS)
-flutter build ios --release
+### 2. Create API Client
 
-# Web
-flutter build web --release
+```javascript
+const API_BASE = "http://localhost:8000/api";
+
+const fetchMachines = async () => {
+  const response = await fetch(`${API_BASE}/machines/`);
+  return response.json();
+};
+
+const runSimulation = async (params) => {
+  const response = await fetch(`${API_BASE}/simulation/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return response.json();
+};
+```
+
+### 3. Error Handling
+
+```javascript
+try {
+  const data = await fetchMachines();
+} catch (error) {
+  console.error("API Error:", error.message);
+  // Handle 500 Internal Server Error
+  // Handle 404 Not Found
+  // Handle 422 Validation Error
+}
+```
+
+### 4. Real-time Updates (WebSocket)
+
+```python
+# Coming soon: Add WebSocket support for real-time updates
+from fastapi import WebSocket
+
+@app.websocket("/ws/machines/{machine_id}")
+async def websocket_machine(websocket: WebSocket, machine_id: int):
+    await websocket.accept()
+    while True:
+        data = await get_machine_data(machine_id)
+        await websocket.send_json(data)
 ```
 
 ---
-
-## 📱 Flutter Integration Summary
-
-✅ **HTTP Client**: Use `http` package for REST API calls  
-✅ **WebSocket**: Use `web_socket_channel` for real-time updates  
-✅ **State Management**: Provider/Bloc for app state  
-✅ **JSON Serialization**: `json_serializable` for type safety  
-✅ **Error Handling**: Custom exceptions with retry logic  
-✅ **Testing**: Unit tests for API services  
-✅ **Deployment**: CORS, environment configs, build optimization
-
-The Flutter frontend can now seamlessly integrate with the FastAPI backend for a complete predictive maintenance dashboard experience.
 
 ## 📝 Requirements
 
