@@ -1,310 +1,109 @@
-#  Predictive Maintenance System
+# Smart Factory Digital Twin - Environment Setup
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![TensorFlow 2.13](https://img.shields.io/badge/TensorFlow-2.13-orange.svg)](https://www.tensorflow.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+This repository is prepared as a production-style baseline for a large-scale Python project.
 
-Real-time predictive maintenance system with **edge AI**, **RUL prediction**, **drift detection**, and **adaptive retraining**.
+Scope of this setup:
 
----
+- Environment setup with Python 3.10
+- Dependency management with pinned requirements
+- Configuration loading from `.env`
+- Database and RabbitMQ connection stubs
+- Centralized logging
+- Import verification test
+- Docker and Docker Compose stack
 
-##  Features
+Out of scope for now:
 
-✅ **Edge Anomaly Detection** - Real-time detection with <100ms latency  
-✅ **RUL Prediction** - LSTM-based remaining useful life estimation  
-✅ **Drift Detection** - Automatic concept drift monitoring  
-✅ **Adaptive Retraining** - Self-healing system with model updates  
-✅ **Event-Driven Architecture** - RabbitMQ message broker  
-✅ **Real-time Dashboard** - Live monitoring with Streamlit  
-✅ **Edge/Cloud Separation** - Simulated distributed architecture
+- Simulation, ML, RL, API business logic, and integration implementation
 
----
+## Folder Structure
 
-##   System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         EDGE LAYER                              │
-├─────────────────────────────────────────────────────────────────┤
-│  Sensor Simulator → Data Adapter → Edge Anomaly Detector        │
-│         ↓               ↓                    ↓                   │
-│    sensor.raw    sensor.cleaned      edge.anomaly               │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │ Edge-to-Cloud Bridge
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLOUD LAYER                              │
-├─────────────────────────────────────────────────────────────────┤
-│  RUL Predictor → Drift Detector → Retrain Service               │
-│         ↓              ↓                ↓                        │
-│    cloud.rul     drift.alert     model.update                   │
-│                        ↓                                         │
-│              Decision Engine → Alert Manager                     │
-│                        ↓                                         │
-│                   Dashboard UI                                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-##   Tech Stack
-
-| Component           | Technology                     |
-| ------------------- | ------------------------------ |
-| **Language**        | Python 3.10+                   |
-| **Message Broker**  | RabbitMQ 3.x                   |
-| **ML Framework**    | TensorFlow/Keras, Scikit-learn |
-| **Dashboard**       | Streamlit                      |
-| **Data Processing** | Pandas, NumPy                  |
-| **Visualization**   | Matplotlib, Plotly, Seaborn    |
-
----
-
-##   Quick Start
-
-### Prerequisites
-
-- Python 3.10 or higher
-- Docker Desktop (for RabbitMQ)
-- 4GB RAM minimum
-- 2GB free disk space
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/ayushsingh08-ds/predictive-maintenance-system.git
-cd predictive-maintenance-system
+```text
+.
+|-- services/
+|   |-- simulation/
+|   |-- edge/
+|   |-- cloud_ai/
+|   |-- scheduler/
+|   `-- integration/
+|-- api/
+|-- database/
+|   |-- __init__.py
+|   |-- connection.py
+|   `-- rabbitmq.py
+|-- config/
+|   |-- __init__.py
+|   |-- config.py
+|   `-- logging_setup.py
+|-- models/
+|-- notebooks/
+|-- docker/
+|-- tests/
+|   `-- test_env.py
+|-- logs/
+|-- requirements.txt
+|-- .env
+|-- Dockerfile
+|-- docker-compose.yml
+|-- README.md
+`-- main.py
 ```
 
-### 2. Set Up Python Environment
+Service folders are intentionally empty for now.
 
-```bash
-# Create virtual environment
-python -m venv venv
+## Python Version
 
-# Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-# On Windows:
-venv\Scripts\activate
+Use Python 3.10.
 
-# Install dependencies
-pip install --upgrade pip
+## Create Virtual Environment
+
+### Windows (PowerShell)
+
+```powershell
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment
+### Windows (CMD)
+
+```bat
+py -3.10 -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Linux/macOS
 
 ```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your settings (optional - defaults work fine)
-nano .env  # or use your preferred editor
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-### 4. Start RabbitMQ
+## Environment Variables
+
+The `.env` file contains:
+
+```dotenv
+DB_HOST=localhost
+DB_NAME=smart_factory
+DB_USER=postgres
+DB_PASS=postgres
+RABBITMQ_HOST=localhost
+RABBITMQ_USER=guest
+RABBITMQ_PASS=guest
+API_HOST=0.0.0.0
+API_PORT=8000
+```
+
+## Verify Dependency Imports
 
 ```bash
-# Start Cloud RabbitMQ
-docker run -d \
-  --name rabbitmq-cloud \
-  -p 5672:5672 \
-  -p 15672:15672 \
-  -e RABBITMQ_DEFAULT_USER=admin \
-  -e RABBITMQ_DEFAULT_PASS=admin123 \
-  rabbitmq:3-management
-
-# Start Edge RabbitMQ (for edge/cloud simulation)
-docker run -d \
-  --name rabbitmq-edge \
-  -p 5673:5672 \
-  -p 15673:15672 \
-  -e RABBITMQ_DEFAULT_USER=admin \
-  -e RABBITMQ_DEFAULT_PASS=admin123 \
-  rabbitmq:3-management
-
-# Verify RabbitMQ is running
-# Cloud: http://localhost:15672 (admin/admin123)
-# Edge: http://localhost:15673 (admin/admin123)
-```
-
-### 5. Run the System
-
-**Option A: Run Everything (Automated)**
-
-```bash
-chmod +x scripts/run_full_system.sh
-./scripts/run_full_system.sh
-```
-
-**Option B: Run Components Separately**
-
-```bash
-# Terminal 1: Edge Services
-python edge/simulator/sensor_simulator.py &
-python edge/adapter/data_adapter.py &
-python edge/ai/anomaly_detector.py
-
-# Terminal 2: Cloud Services
-python messaging/bridge.py &
-python cloud/ai/rul_predictor.py &
-python cloud/services/drift_detector.py &
-python cloud/services/decision_engine.py &
-python cloud/services/retrain_service.py
-
-# Terminal 3: Dashboard
-streamlit run dashboard/app.py
-```
-
-### 6. Access the Dashboard
-
-Open browser to: **http://localhost:8501**
-
----
-
-##   Project Structure
-
-```
-predictive-maintenance-system/
-│
-├── config/                    # Configuration and schemas
-│   ├── settings.py           # Centralized configuration
-│   ├── event_schema.py       # Event data structures
-│   └── topics.py             # RabbitMQ topic definitions
-│
-├── edge/                      # Edge layer services
-│   ├── simulator/            # Sensor data simulation
-│   │   ├── sensor_simulator.py
-│   │   └── failure_scenarios.py
-│   ├── adapter/              # Data normalization
-│   │   └── data_adapter.py
-│   └── ai/                   # Edge AI services
-│       ├── anomaly_detector.py
-│       └── models/           # Trained models
-│
-├── cloud/                     # Cloud layer services
-│   ├── ai/                   # Cloud AI services
-│   │   ├── rul_predictor.py
-│   │   ├── drift_detector.py
-│   │   └── model_registry/   # Model storage
-│   └── services/             # Business logic
-│       ├── decision_engine.py
-│       ├── retrain_service.py
-│       └── alert_manager.py
-│
-├── dashboard/                 # Web dashboard
-│   ├── app.py                # Main dashboard
-│   └── components/           # UI components
-│
-├── messaging/                 # Message broker clients
-│   ├── rabbitmq_client.py    # RabbitMQ wrapper
-│   ├── publisher.py          # Generic publisher
-│   ├── consumer.py           # Generic consumer
-│   └── bridge.py             # Edge-to-cloud bridge
-│
-├── notebooks/                 # Jupyter notebooks
-│   ├── 01_eda.ipynb          # Exploratory analysis
-│   ├── 02_anomaly_training.ipynb
-│   ├── 03_rul_training.ipynb
-│   └── 04_drift_analysis.ipynb
-│
-├── data/                      # Data storage
-│   ├── raw/                  # Raw sensor data
-│   ├── processed/            # Processed data
-│   ├── models/               # Model artifacts
-│   └── logs/                 # System logs
-│
-├── scripts/                   # Utility scripts
-│   ├── setup_rabbitmq.sh     # RabbitMQ setup
-│   ├── generate_test_data.py # Data generation
-│   └── run_full_system.sh    # System launcher
-│
-├── tests/                     # Unit tests
-│   ├── test_edge/
-│   ├── test_cloud/
-│   └── test_messaging/
-│
-├── docs/                      # Documentation
-│   ├── architecture.md
-│   ├── ml_requirements.md
-│   └── deployment_guide.md
-│
-├── requirements.txt           # Python dependencies
-├── .env.example              # Environment template
-├── .gitignore                # Git ignore rules
-└── README.md                 # This file
-```
-
----
-
-##   Key Concepts
-
-### Event-Driven Architecture
-
-The system uses **RabbitMQ topics** for communication:
-
-| Topic               | Description                 |
-| ------------------- | --------------------------- |
-| `sensor.raw`        | Raw sensor readings         |
-| `sensor.cleaned`    | Normalized sensor data      |
-| `edge.anomaly`      | Anomaly detection results   |
-| `cloud.rul`         | RUL predictions             |
-| `drift.alert`       | Concept drift alerts        |
-| `maintenance.alert` | Maintenance recommendations |
-| `model.update`      | Model deployment events     |
-
-### ML Models
-
-1. **Anomaly Detection** (Edge)
-   - Algorithm: Isolation Forest
-   - Inference: <100ms
-   - Threshold: 0.7
-
-2. **RUL Prediction** (Cloud)
-   - Algorithm: LSTM
-   - Input: 50 timesteps
-   - Output: Hours until failure
-
-3. **Drift Detection** (Cloud)
-   - Methods: KS test, PSI
-   - Window: 1000 samples
-   - Triggers retraining
-
----
-
-##   Testing
-
-### Run All Tests
-
-```bash
-pytest tests/ -v --cov=.
-```
-
-### Test Specific Component
-
-```bash
-# Edge services
-pytest tests/test_edge/
-
-# Cloud services
-pytest tests/test_cloud/
-
-# Messaging
-pytest tests/test_messaging/
-```
-
-### Manual Testing Scenarios
-
-```bash
-# Normal operation
-python edge/simulator/sensor_simulator.py --mode=normal
-
-# Inject anomaly
-python edge/simulator/sensor_simulator.py --mode=failing
-
-# Gradual degradation
-python edge/simulator/sensor_simulator.py --mode=degrading
+python tests/test_env.py
 ```
 
 ---
@@ -326,133 +125,97 @@ python edge/simulator/sensor_simulator.py --mode=degrading
 Key settings in `.env`:
 
 ```bash
-# Anomaly detection
-ANOMALY_THRESHOLD=0.7
-
-# RUL prediction
-RUL_CRITICAL_HOURS=24
-RUL_WARNING_HOURS=72
-
-# Drift detection
-DRIFT_THRESHOLD_PSI=0.3
-
-# Retraining
-RETRAIN_ON_DRIFT=true
-RETRAIN_MIN_SAMPLES=500
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
----
+Health endpoint:
 
-##   Troubleshooting
+- `GET /health`
 
-### RabbitMQ Connection Failed
+## Run Full Stack with Docker Compose
 
 ```bash
-# Check if RabbitMQ is running
-docker ps | grep rabbitmq
-
-# Restart RabbitMQ
-docker restart rabbitmq-cloud rabbitmq-edge
-
-# Check logs
-docker logs rabbitmq-cloud
+docker compose up --build
 ```
 
-### Dashboard Not Loading
+Services:
 
-```bash
-# Check if port 8501 is available
-lsof -i :8501
+- FastAPI: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
+- RabbitMQ: `amqp://guest:guest@localhost:5672/`
+- RabbitMQ Management UI: `http://localhost:15672`
 
-# Try different port
-streamlit run dashboard/app.py --server.port 8502
-```
+## Troubleshooting Guide
 
-### Model Not Found
+### 1) Pip resolver conflicts
 
-```bash
-# Train models first
-python notebooks/02_anomaly_training.ipynb
-python notebooks/03_rul_training.ipynb
+Symptoms:
 
-# Or use pre-trained models
-python scripts/download_models.py
-```
+- `ResolutionImpossible`
 
----
+Fix:
 
-##   Deployment
+- Upgrade pip, setuptools, wheel:
+  - `python -m pip install --upgrade pip setuptools wheel`
+- Recreate venv and reinstall dependencies.
 
-### Docker Deployment (Coming Soon)
+### 2) Torch / Torch-Geometric wheel mismatch
 
-```bash
-docker-compose up -d
-```
+Symptoms:
 
-### Cloud Deployment
+- Install fails on `torch-geometric`
+- Runtime import errors for torch geometric extensions
 
-See [docs/deployment_guide.md](docs/deployment_guide.md) for AWS/GCP/Azure deployment instructions.
+Fix:
 
----
+- Ensure Python is exactly 3.10.
+- Keep the pinned `torch`, `torchvision`, `torchaudio`, and `torch-geometric` versions.
+- If needed, install PyG wheels from official index matching torch version before reinstalling `torch-geometric`.
 
-##   Team
+### 3) LightGBM build issues on Windows
 
-- **AI/ML Engineer** - Model training, drift detection, retraining
-- **Platform Engineer** - Infrastructure, integration, dashboard
+Symptoms:
 
----
+- Fails building wheel from source
 
-##   Development Timeline
+Fix:
 
-✅ Week 1: Core pipeline (sensor → adapter → anomaly → alert)  
-✅ Week 2: RUL prediction, drift detection, dashboard, retraining
+- Use the pinned version in this project (wheel available for common setups).
+- Upgrade pip and retry.
 
-**Total:** 14-day sprint
+### 4) psycopg2 installation issues
 
----
+Symptoms:
 
-##   Future Improvements
+- Compiler or `pg_config` errors
 
-- [ ] Multi-sensor support
-- [ ] Advanced ensemble models
-- [ ] Kubernetes deployment
-- [ ] Real-time model explainability
-- [ ] Mobile dashboard
-- [ ] Database persistence
-- [ ] Alert escalation workflows
-- [ ] A/B testing for models
+Fix:
 
----
+- Use `psycopg2-binary` (already pinned) instead of source `psycopg2`.
 
-##   License
+### 5) RabbitMQ connection refused
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Symptoms:
 
----
+- Cannot connect to AMQP broker
 
-##   Acknowledgments
+Fix:
 
-Built as a demonstration of production-ready MLOps practices combining:
+- Confirm container is healthy: `docker compose ps`
+- Confirm `.env` host is `rabbitmq` inside containers and `localhost` for local runs.
+- Verify port `5672` is available.
 
-- Real-time stream processing
-- Edge/Cloud hybrid architecture
-- Adaptive machine learning
-- Event-driven microservices
+### 6) PostgreSQL authentication failures
 
----
+Symptoms:
 
-##   Contact
+- `password authentication failed`
 
-**GitHub:** [@ayushsingh08-ds](https://github.com/ayushsingh08-ds)
+Fix:
 
-For questions or issues, please open a GitHub issue.
+- Ensure `.env` values match container credentials.
+- Default compose credentials are `postgres/postgres` database `smart_factory`.
 
----
+## Recommended Next Step
 
-## ⭐ Star This Repo
-
-If you find this project useful, please give it a star! ⭐
-
----
-
-**Built with ❤️ in 14 days**
+After environment verification passes, begin implementing domain modules in `services/` one component at a time (simulation, edge, cloud_ai, scheduler, integration).
