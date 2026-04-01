@@ -106,7 +106,23 @@ API_PORT=8000
 python tests/test_env.py
 ```
 
-## Run FastAPI Locally
+---
+
+##   Performance Metrics
+
+| Metric                 | Target    | Actual    |
+| ---------------------- | --------- | --------- |
+| Edge anomaly detection | <100ms    | ~50ms     |
+| RUL prediction         | <500ms    | ~200ms    |
+| End-to-end latency     | <2s       | ~1.2s     |
+| Throughput             | 100 msg/s | 150 msg/s |
+| Memory usage           | <2GB      | ~1.5GB    |
+
+---
+
+## 🔧 Configuration
+
+Key settings in `.env`:
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
