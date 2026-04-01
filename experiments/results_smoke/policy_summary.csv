@@ -1,0 +1,5 @@
+policy,episodes,mean_reward,std_reward,mean_throughput_jobs_per_hour,std_throughput_jobs_per_hour,mean_tardiness_hours,std_tardiness_hours,mean_downtime_hours,std_downtime_hours,mean_utilization,std_utilization,mean_failures,std_failures
+RANDOM,2,0.0,0.0,5.375,0.375,0.14945,0.10945,8.01365,2.38585,0.5865,0.0328,4.5,1.5
+SPT,2,0.0,0.0,5.6875,0.1458,0.0161,0.002,3.7147,1.8033,0.65915,0.02015,4.0,1.0
+QUEUE_BASED,2,0.0,0.0,5.52085,0.02085,0.0117,0.0032,4.2477,1.2703,0.632,0.0046,4.5,0.5
+HEALTH_AWARE,2,0.0,0.0,5.79165,0.29165,0.0632,0.014,5.37845,2.56825,0.673,0.0348,4.5,0.5

@@ -11,6 +11,7 @@ Scope of this setup:
 - Centralized logging
 - Import verification test
 - Docker and Docker Compose stack
+- Anomaly detection with RabbitMQ message publishing for decoupled architecture
 
 Out of scope for now:
 
@@ -98,7 +99,47 @@ RABBITMQ_USER=guest
 RABBITMQ_PASS=guest
 API_HOST=0.0.0.0
 API_PORT=8000
+USE_RABBITMQ=true
+ENABLE_EVENT_CONSUMERS=false
 ```
+
+## RabbitMQ Setup
+
+RabbitMQ is used for decoupled message publishing of anomaly alerts.
+
+To run RabbitMQ locally:
+
+```bash
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+```
+
+Or use Docker Compose:
+
+```bash
+docker-compose up rabbitmq -d
+```
+
+Access RabbitMQ Management UI at http://localhost:15672 (guest/guest).
+
+Anomaly alerts are published to the "anomaly.alert" queue.
+
+### Optional Event Consumers (Job/Machine Projections)
+
+The API can start RabbitMQ consumers for:
+
+- Job status events (operation routed/started/interrupted/completed, reroutes)
+- Machine state events (machine failed/repaired, operation start/completion)
+
+Enable this only when downstream async processing is needed:
+
+```dotenv
+ENABLE_EVENT_CONSUMERS=true
+```
+
+Performance note:
+
+- `ENABLE_EVENT_CONSUMERS=false` (default) is best for single-service local runs and lowest overhead.
+- `ENABLE_EVENT_CONSUMERS=true` helps scalability and decoupling when you have external consumers/services reacting to events.
 
 ## Verify Dependency Imports
 
@@ -108,7 +149,7 @@ python tests/test_env.py
 
 ---
 
-##   Performance Metrics
+## Performance Metrics
 
 | Metric                 | Target    | Actual    |
 | ---------------------- | --------- | --------- |

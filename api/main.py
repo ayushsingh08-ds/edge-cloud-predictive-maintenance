@@ -20,11 +20,14 @@ import logging
 
 from api.routes import machines, jobs, anomalies, simulation, rl_training, analytics, operations, routing, streaming
 from api import websocket
+from config.config import get_settings
 from db.database import init_db
+from services.integration import RabbitMQEventConsumers
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+event_consumers = RabbitMQEventConsumers()
 
 # Create FastAPI app
 app = FastAPI(
@@ -66,6 +69,14 @@ app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
 @app.on_event("startup")
 async def on_startup() -> None:
     init_db()
+    settings = get_settings()
+    if settings.use_rabbitmq and settings.enable_event_consumers:
+        event_consumers.start()
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    event_consumers.stop()
 
 
 # Health check endpoints
@@ -85,6 +96,7 @@ async def api_status():
     return {
         "system_status": "operational",
         "timestamp": datetime.now().isoformat(),
+        "event_consumers": event_consumers.status(),
         "services": {
             "machines": "healthy",
             "simulation": "ready",

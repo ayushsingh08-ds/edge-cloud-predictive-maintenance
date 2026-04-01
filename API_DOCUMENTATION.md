@@ -12,6 +12,7 @@ The API provides:
 - ✅ Simulation runs with different policies
 - ✅ RL agent training and evaluation
 - ✅ Analytics and performance metrics
+- ✅ Event-driven domain messages over RabbitMQ topics for decoupled consumers
 - ✅ Interactive API documentation (Swagger UI)
 
 ---
@@ -176,6 +177,16 @@ GET  /api/simulation/history/recent    # Get recent simulations
   }
 }
 ```
+
+Simulation streams are also emitted as live domain events over WebSocket and RabbitMQ topic routing keys such as `simulation.operation_started`, `simulation.operation_completed`, and `simulation.stream_completed`.
+
+Job and machine projections can be consumed asynchronously by enabling background RabbitMQ consumers in the API process:
+
+- `ENABLE_EVENT_CONSUMERS=true`
+- Job queue bindings: `simulation.operation_routed`, `simulation.operation_started`, `simulation.operation_interrupted`, `simulation.operation_completed`, `simulation.job_rerouted`
+- Machine queue bindings: `simulation.machine_failed`, `simulation.machine_repaired`, `simulation.operation_started`, `simulation.operation_completed`
+
+When enabled, consumer runtime state is exposed via `GET /api/status` under `event_consumers`.
 
 ### 5. **RL Training** - Model Training & Evaluation
 
@@ -555,6 +566,114 @@ async def websocket_machine(websocket: WebSocket, machine_id: int):
         data = await get_machine_data(machine_id)
         await websocket.send_json(data)
 ```
+
+For decoupled consumers, the same operational events are also published to the RabbitMQ exchange `predictive_maintenance.events`, so downstream services can subscribe without coupling to the FastAPI request lifecycle.
+
+---
+
+## 🧠 Models, Algorithms, and Metrics
+
+This section explains exactly what intelligence is currently running in the backend, and how to interpret reported metrics.
+
+### Scheduling Algorithms in Production
+
+The simulator supports the following scheduling policies:
+
+- `RANDOM`: Randomly selects a machine from the operation candidate set.
+- `SPT` (Shortest Processing Time proxy): Scores candidates using queue workload, queue length, and processing-time preference.
+- `QUEUE_BASED`: Picks the least occupied candidate queue.
+- `HEALTH_AWARE`: Uses weighted scoring across machine health, queue length, processing time, and due-date urgency.
+
+These policies are used during simulation and policy-comparison endpoints.
+
+### Reinforcement Learning Model
+
+- **Algorithm**: PPO (Proximal Policy Optimization)
+- **Library**: `stable-baselines3`
+- **Policy network**: `MlpPolicy`
+- **Environment**: Gymnasium wrapper over factory simulation
+- **Action**: Select candidate machine index for current operation
+- **Observation**: Queue lengths, machine health, operation candidate mask, urgency, operation index, elapsed time, utilization
+- **Reward**: Multi-objective penalty combining tardiness and downtime deltas
+
+### Routing and Operations Analytics
+
+Routing analytics are computed from simulation/job histories:
+
+- **Routing efficiency**:
+
+  $$
+  	ext{efficiency} = \frac{\text{direct operations}}{\max(\text{actual hops}, 1)}
+  $$
+
+- **Routing success rate**:
+
+  $$
+  1 - \frac{\text{affected jobs (rerouted)}}{\max(\text{jobs}, 1)}
+  $$
+
+- **Rerouting delay proxy**:
+
+  $$
+  	ext{avg delay} = \frac{\text{total reroutes} \times 0.05}{\max(\text{jobs}, 1)}
+  $$
+
+- **Bottleneck operations**: Top operations by reroute count.
+
+### Metrics You Can Trust as Measured Outputs
+
+These are produced from simulation runs and RL evaluation episodes:
+
+- Throughput (`throughput_jobs_per_hour`)
+- Utilization (`utilization`)
+- Average tardiness (`avg_tardiness_hours`)
+- Total downtime (`downtime_hours`)
+- Failure count (`failures`)
+- Jobs completed (`jobs_completed`)
+- RL episode reward (`episode_reward`)
+- Routing metrics (efficiency, reroutes, bottlenecks)
+
+### Metrics Currently Placeholder / Demo Values
+
+Some endpoint fields are currently synthetic/demo and should not be treated as final model-validation numbers:
+
+- `detection_rate` and `false_positive_rate` in anomaly statistics
+- Some training progress values in RL status endpoints (progress is time-based simulation)
+- Some historical analytics trend points are generated sample series
+
+### Accuracy, Precision, Recall, F1, AUC Status
+
+At present, there is **no fully wired supervised anomaly-classification pipeline** exposing true classification metrics such as:
+
+- Accuracy
+- Precision
+- Recall
+- F1-score
+- ROC-AUC
+
+For the current RL + operations optimization stack, preferred success criteria are:
+
+- Lower tardiness
+- Lower downtime
+- Higher throughput
+- Higher utilization
+- Better routing efficiency and fewer reroutes
+
+### Recommended Benchmark Reporting (for frontend)
+
+For each policy/model, display at least:
+
+- Mean and standard deviation over multiple episodes/runs
+- Throughput, tardiness, downtime, failures, utilization
+- Relative improvement vs baseline policy (`RANDOM` or `QUEUE_BASED`)
+
+Example improvement formula:
+
+$$
+	ext{improvement\%} = \frac{\text{baseline} - \text{candidate}}{\max(|\text{baseline}|, \epsilon)} \times 100
+$$
+
+Use this with "lower is better" metrics (tardiness, downtime). For "higher is better" metrics (throughput, utilization), invert numerator accordingly.
 
 ---
 

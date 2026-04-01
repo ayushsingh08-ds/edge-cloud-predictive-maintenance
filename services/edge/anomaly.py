@@ -42,7 +42,7 @@ class EdgeAnomalyDetector:
 
     def __post_init__(self) -> None:
         self.normalizer = RollingNormalizer(window_size=30)
-        self.publisher = AlertPublisher(topic_name="anomaly.alert")
+        self.publisher = AlertPublisher()
         self._buffers: dict[int, list[NDArray[np.float32]]] = defaultdict(list)
         self._models: dict[int, IsolationForest] = {}
         self._consecutive_flags: dict[int, int] = defaultdict(int)
@@ -68,7 +68,7 @@ class EdgeAnomalyDetector:
         self,
         record: SensorRecord,
         *,
-        publish_alerts: bool = False,
+        publish_alerts: bool = True,
     ) -> dict[str, object]:
         normalized: NDArray[np.float32] = self.normalizer.normalize(record)
         self._buffers[record.machine_id].append(normalized)
@@ -109,7 +109,6 @@ class EdgeAnomalyDetector:
         if sustained:
             self.publisher.publish(
                 {
-                    "topic": "anomaly.alert",
                     "machine_id": record.machine_id,
                     "timestamp": record.timestamp,
                     "severity": "high",
@@ -120,6 +119,8 @@ class EdgeAnomalyDetector:
                         "pressure": result["pressure"],
                     },
                 },
+                event_type="anomaly.alert",
+                routing_key="anomaly.alert",
                 use_rabbitmq=publish_alerts,
             )
 

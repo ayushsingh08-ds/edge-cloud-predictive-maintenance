@@ -11,25 +11,33 @@ from fastapi import APIRouter, HTTPException
 
 from api.dashboard_models import RunAndStreamRequest, RunAndStreamResponse
 from api.websocket import simulation_ws_hub
+from services.edge.publisher import EventPublisher
 from services.simulation.engine import FactoryConfig, FactorySimulation, SchedulingPolicy
 
 
 router = APIRouter()
 _active_tasks: dict[str, asyncio.Task[Any]] = {}
+_stream_event_publisher = EventPublisher(routing_key="simulation.stream")
 
 
 async def _run_simulation_stream(simulation_id: str, request: RunAndStreamRequest) -> None:
     try:
         policy = SchedulingPolicy[request.policy.upper()]
     except KeyError as exc:
+        error_payload = {
+            "event_type": "stream_error",
+            "simulation_id": simulation_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "payload": {"error": f"Unsupported policy: {request.policy}"},
+        }
         await simulation_ws_hub.broadcast(
             simulation_id,
-            {
-                "event_type": "stream_error",
-                "simulation_id": simulation_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "payload": {"error": f"Unsupported policy: {request.policy}"},
-            },
+            error_payload,
+        )
+        _stream_event_publisher.publish(
+            {"simulation_id": simulation_id, "error": f"Unsupported policy: {request.policy}"},
+            event_type="stream_error",
+            routing_key="simulation.stream_error",
         )
         raise ValueError(f"Unsupported policy: {request.policy}") from exc
 
@@ -52,18 +60,21 @@ async def _run_simulation_stream(simulation_id: str, request: RunAndStreamReques
             sim_runtime.env.process(sim_runtime.machine_failure_process(machine))
             sim_runtime.env.process(sim_runtime.preventive_maintenance_process(machine))
 
-    await simulation_ws_hub.broadcast(
-        simulation_id,
-        {
-            "event_type": "stream_started",
-            "simulation_id": simulation_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "payload": {
-                "status": "running",
-                "duration_hours": request.duration_hours,
-                "policy": request.policy,
-            },
+    started_payload = {
+        "event_type": "stream_started",
+        "simulation_id": simulation_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "payload": {
+            "status": "running",
+            "duration_hours": request.duration_hours,
+            "policy": request.policy,
         },
+    }
+    await simulation_ws_hub.broadcast(simulation_id, started_payload)
+    _stream_event_publisher.publish(
+        started_payload,
+        event_type="stream_started",
+        routing_key="simulation.stream_started",
     )
 
     next_event_index = 0
@@ -84,31 +95,38 @@ async def _run_simulation_stream(simulation_id: str, request: RunAndStreamReques
                 "machine_failed",
                 "machine_repaired",
             }:
-                await simulation_ws_hub.broadcast(
-                    simulation_id,
-                    {
-                        "event_type": event.get("event"),
-                        "simulation_id": simulation_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "payload": event,
-                    },
+                event_type = str(event.get("event"))
+                stream_event = {
+                    "event_type": event_type,
+                    "simulation_id": simulation_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": event,
+                }
+                await simulation_ws_hub.broadcast(simulation_id, stream_event)
+                _stream_event_publisher.publish(
+                    {"simulation_id": simulation_id, **event},
+                    event_type=event_type,
+                    routing_key=f"simulation.{event_type}",
                 )
 
         await asyncio.sleep(0)
 
     summary = sim_runtime.summary()
-    await simulation_ws_hub.broadcast(
-        simulation_id,
-        {
-            "event_type": "stream_completed",
-            "simulation_id": simulation_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "payload": {
-                "status": "completed",
-                "summary": summary,
-                "events_emitted": next_event_index,
-            },
+    completed_payload = {
+        "event_type": "stream_completed",
+        "simulation_id": simulation_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "payload": {
+            "status": "completed",
+            "summary": summary,
+            "events_emitted": next_event_index,
         },
+    }
+    await simulation_ws_hub.broadcast(simulation_id, completed_payload)
+    _stream_event_publisher.publish(
+        completed_payload,
+        event_type="stream_completed",
+        routing_key="simulation.stream_completed",
     )
 
 

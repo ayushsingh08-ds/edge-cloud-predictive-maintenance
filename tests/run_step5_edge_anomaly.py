@@ -31,7 +31,7 @@ def main() -> None:
     warmup_events = 0
 
     for record in stream:
-        result = detector.process(record, publish_alerts=False)
+        result = detector.process(record, publish_alerts=True)
         if result["status"] == "warmup":
             warmup_events += 1
             continue

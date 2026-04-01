@@ -1,0 +1,7 @@
+key,value
+episodes,5
+duration_hours,8.0
+num_machines,3
+arrival_rate,6.0
+enable_failures,True
+rl_model_path,models\step9_ppo\ppo_final.zip

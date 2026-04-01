@@ -9,9 +9,14 @@ import logging
 
 from api.models import Anomaly, AnomalyFeedResponse, AlertSeverityEnum
 from services.simulation.engine import FactorySimulation, FactoryConfig
+from services.edge.anomaly import EdgeAnomalyDetector
+from services.edge.sensor_stream import SensorRecord
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Global anomaly detector instance
+_anomaly_detector = EdgeAnomalyDetector()
 
 
 # In-memory anomaly storage (for demo)
@@ -206,26 +211,30 @@ async def get_anomaly_statistics():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{anomaly_id}/acknowledge")
-async def acknowledge_anomaly(anomaly_id: int):
+@router.post("/process-sensor")
+async def process_sensor_data(sensor_data: dict):
     """
-    Mark an anomaly as acknowledged.
+    Process sensor data for anomaly detection.
     
     Args:
-        anomaly_id: Anomaly ID
+        sensor_data: Sensor record with timestamp, machine_id, temperature, vibration, pressure
     
     Returns:
-        Updated anomaly status.
+        Anomaly detection result.
     """
     try:
-        return {
-            "anomaly_id": anomaly_id,
-            "status": "acknowledged",
-            "acknowledged_at": datetime.now().isoformat(),
-        }
+        record = SensorRecord(
+            timestamp=sensor_data["timestamp"],
+            machine_id=sensor_data["machine_id"],
+            temperature=sensor_data["temperature"],
+            vibration=sensor_data["vibration"],
+            pressure=sensor_data["pressure"],
+        )
+        result = _anomaly_detector.process(record)
+        return result
     
     except Exception as e:
-        logger.error(f"Error acknowledging anomaly: {str(e)}")
+        logger.error(f"Error processing sensor data: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -24,6 +24,8 @@ class Settings:
     rabbitmq_pass: str
     api_host: str
     api_port: int
+    use_rabbitmq: bool
+    enable_event_consumers: bool
 
     @property
     def database_url(self) -> str:
@@ -63,4 +65,6 @@ def get_settings() -> Settings:
         rabbitmq_pass=os.environ["RABBITMQ_PASS"],
         api_host=os.environ["API_HOST"],
         api_port=int(os.environ["API_PORT"]),
+        use_rabbitmq=os.getenv("USE_RABBITMQ", "true").lower() == "true",
+        enable_event_consumers=os.getenv("ENABLE_EVENT_CONSUMERS", "false").lower() == "true",
     )
