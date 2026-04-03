@@ -1,9 +1,0 @@
-policy,episode,episode_reward,jobs_completed,avg_tardiness_hours,total_downtime_hours,total_failures,utilization,throughput_jobs_per_hour
-RANDOM,1,0.0,120,0.04,5.6278,6,0.5537,5.0
-RANDOM,2,0.0,138,0.2589,10.3995,3,0.6193,5.75
-SPT,1,0.0,133,0.0141,5.518,5,0.639,5.5417
-SPT,2,0.0,140,0.0181,1.9114,3,0.6793,5.8333
-QUEUE_BASED,1,0.0,133,0.0149,5.518,5,0.6366,5.5417
-QUEUE_BASED,2,0.0,132,0.0085,2.9774,4,0.6274,5.5
-HEALTH_AWARE,1,0.0,146,0.0772,7.9467,5,0.7078,6.0833
-HEALTH_AWARE,2,0.0,132,0.0492,2.8102,4,0.6382,5.5
