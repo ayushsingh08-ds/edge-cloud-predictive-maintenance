@@ -1,0 +1,17 @@
+{
+  "rmse": 60.2365608215332,
+  "mae": 43.4479866027832,
+  "epochs_ran": 28,
+  "input_shape": [
+    30,
+    10
+  ],
+  "model_path": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\predictive_maintenance_cnn_lstm.keras",
+  "keras_model_path": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\predictive_maintenance_cnn_lstm.keras",
+  "loss_plot": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\data\\predictions\\training_loss_vs_epochs.png",
+  "target_scaling": {
+    "name": "standard_score",
+    "mean": 62.53396987915039,
+    "std": 61.504703521728516
+  }
+}
