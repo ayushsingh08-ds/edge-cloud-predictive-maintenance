@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./backend/data:/app/data
+    restart: always
+
+  # Note: Frontend (Flutter) is typically run locally or built for Web/Windows
+  # but the backend is now fully dockerized for the "Cloud" component.

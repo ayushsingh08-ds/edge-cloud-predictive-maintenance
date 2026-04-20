@@ -121,24 +121,33 @@ class LayoutEdge {
   }
 }
 
-class FactoryLayout {
+class LayoutGraph {
   final List<LayoutNode> nodes;
   final List<LayoutEdge> edges;
 
-  FactoryLayout({required this.nodes, required this.edges});
+  LayoutGraph({required this.nodes, required this.edges});
 
   Map<String, dynamic> toJson() => {
     'nodes': nodes.map((n) => n.toJson()).toList(),
     'edges': edges.map((e) => e.toJson()).toList(),
   };
 
-  factory FactoryLayout.fromJson(Map<String, dynamic> json) {
-    return FactoryLayout(
-      nodes: (json['nodes'] as List).map((n) => LayoutNode.fromJson(n)).toList(),
-      edges: (json['edges'] as List).map((e) => LayoutEdge.fromJson(e)).toList(),
+  factory LayoutGraph.fromJson(Map<String, dynamic> json) {
+    return LayoutGraph(
+      nodes: (json['nodes'] as List)
+          .map((n) => LayoutNode.fromJson(n))
+          .toList(),
+      edges: (json['edges'] as List)
+          .map((e) => LayoutEdge.fromJson(e))
+          .toList(),
     );
   }
+
+  static fromJsonString(String jsonStr) =>
+      LayoutGraph.fromJson(jsonDecode(jsonStr));
 }
+
+typedef FactoryLayout = LayoutGraph;
 
 enum MachineStatus {
   idle('Idle'),
@@ -165,6 +174,14 @@ class MachineMetrics {
   final int queueLength;
   final int productionCount;
   final double oee;
+  final double utilization;
+  final double temperature;
+  final double vibration;
+  final double load;
+  final double congestionRisk;
+  final double energyTotal;
+  final double carbonTotal;
+  final double? scheduledMaintenance;
 
   MachineMetrics({
     required this.machineId,
@@ -174,17 +191,76 @@ class MachineMetrics {
     required this.queueLength,
     required this.productionCount,
     required this.oee,
+    this.utilization = 0.0,
+    this.temperature = 0.0,
+    this.vibration = 0.0,
+    this.load = 0.0,
+    this.congestionRisk = 0.0,
+    this.energyTotal = 0.0,
+    this.carbonTotal = 0.0,
+    this.scheduledMaintenance,
   });
 
   factory MachineMetrics.fromJson(Map<String, dynamic> json) {
     return MachineMetrics(
       machineId: json['machine_id'] ?? json['id'] ?? '',
-      status: MachineStatus.fromString(json['status'] ?? 'Idle'),
-      healthIndex: (json['health_index'] as num?)?.toDouble() ?? 100.0,
-      remainingUsefulLife: (json['rul'] as num?)?.toDouble() ?? 500.0,
+      status: MachineStatus.fromString(
+        json['state'] ?? json['status'] ?? 'Idle',
+      ),
+      healthIndex:
+          (json['health'] as num?)?.toDouble() ??
+          (json['health_index'] as num?)?.toDouble() ??
+          1.0,
+      remainingUsefulLife:
+          (json['remaining_useful_life'] as num?)?.toDouble() ??
+          (json['rul'] as num?)?.toDouble() ??
+          500.0,
       queueLength: json['queue_length'] ?? 0,
-      productionCount: json['production_count'] ?? 0,
+      productionCount: json['good_count'] ?? json['production_count'] ?? 0,
       oee: (json['oee'] as num?)?.toDouble() ?? 0.0,
+      utilization: (json['utilization'] as num?)?.toDouble() ?? 0.0,
+      temperature: (json['temperature'] as num?)?.toDouble() ?? 0.0,
+      vibration: (json['vibration'] as num?)?.toDouble() ?? 0.0,
+      load:
+          (json['load_factor'] as num?)?.toDouble() ??
+          (json['load'] as num?)?.toDouble() ??
+          0.0,
+      congestionRisk: (json['congestion_risk'] as num?)?.toDouble() ?? 0.0,
+      energyTotal: (json['energy_total'] as num?)?.toDouble() ?? 0.0,
+      carbonTotal: (json['carbon_total'] as num?)?.toDouble() ?? 0.0,
+      scheduledMaintenance: (json['scheduled_maintenance'] as num?)?.toDouble(),
+    );
+  }
+
+  MachineMetrics copyWith({
+    String? machineId,
+    MachineStatus? status,
+    double? healthIndex,
+    double? remainingUsefulLife,
+    int? queueLength,
+    int? productionCount,
+    double? oee,
+    double? utilization,
+    double? temperature,
+    double? vibration,
+    double? load,
+    double? congestionRisk,
+    double? scheduledMaintenance,
+  }) {
+    return MachineMetrics(
+      machineId: machineId ?? this.machineId,
+      status: status ?? this.status,
+      healthIndex: healthIndex ?? this.healthIndex,
+      remainingUsefulLife: remainingUsefulLife ?? this.remainingUsefulLife,
+      queueLength: queueLength ?? this.queueLength,
+      productionCount: productionCount ?? this.productionCount,
+      oee: oee ?? this.oee,
+      utilization: utilization ?? this.utilization,
+      temperature: temperature ?? this.temperature,
+      vibration: vibration ?? this.vibration,
+      load: load ?? this.load,
+      congestionRisk: congestionRisk ?? this.congestionRisk,
+      scheduledMaintenance: scheduledMaintenance ?? this.scheduledMaintenance,
     );
   }
 }
@@ -199,6 +275,14 @@ class GlobalMetrics {
   final int wip;
   final int completedJobs;
   final bool simulationEnabled;
+  final double throughput;
+  final double avgCycleTime;
+  final double leadTime;
+  final int bottlenecks;
+  final List<String> bottleneckNodes;
+  final double avgUtilization;
+  final double totalEnergy;
+  final double totalCarbon;
 
   GlobalMetrics({
     required this.environmentTime,
@@ -210,9 +294,25 @@ class GlobalMetrics {
     required this.wip,
     required this.completedJobs,
     required this.simulationEnabled,
+    this.throughput = 0.0,
+    this.avgCycleTime = 0.0,
+    this.leadTime = 0.0,
+    this.bottlenecks = 0,
+    this.bottleneckNodes = const [],
+    this.avgUtilization = 0.0,
+    this.totalEnergy = 0.0,
+    this.totalCarbon = 0.0,
   });
 
   factory GlobalMetrics.fromJson(Map<String, dynamic> json) {
+    final rawBottleneckNodes = json['bottleneck_nodes'];
+    final parsedBottleneckNodes = rawBottleneckNodes is List
+        ? rawBottleneckNodes
+              .map((node) => node?.toString() ?? '')
+              .where((node) => node.trim().isNotEmpty)
+              .toList()
+        : <String>[];
+
     return GlobalMetrics(
       environmentTime: (json['environment_time'] as num?)?.toDouble() ?? 0.0,
       machineCount: json['machine_count'] ?? 0,
@@ -223,6 +323,14 @@ class GlobalMetrics {
       wip: json['wip'] ?? 0,
       completedJobs: json['completed_jobs'] ?? 0,
       simulationEnabled: json['simulation_enabled'] ?? false,
+      throughput: (json['throughput_hr'] as num?)?.toDouble() ?? 0.0,
+      avgCycleTime: (json['cycle_time_s'] as num?)?.toDouble() ?? 0.0,
+      leadTime: (json['lead_time_m'] as num?)?.toDouble() ?? 0.0,
+      bottlenecks: json['bottlenecks'] ?? 0,
+      bottleneckNodes: parsedBottleneckNodes,
+      avgUtilization: (json['avg_util'] as num?)?.toDouble() ?? 0.0,
+      totalEnergy: (json['total_energy_kwh'] as num?)?.toDouble() ?? 0.0,
+      totalCarbon: (json['total_carbon_kg'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -246,6 +354,64 @@ class SimulationState {
       enabled: json['simulation_enabled'] ?? false,
       speedMultiplier: (json['speed_multiplier'] as num?)?.toDouble() ?? 1.0,
       environmentTime: (json['environment_time'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class PredictiveAlert {
+  final String id;
+  final String machineId;
+  final String message;
+  final String severity;
+  final DateTime timestamp;
+  final Map<String, dynamic> metadata;
+
+  PredictiveAlert({
+    required this.id,
+    required this.machineId,
+    required this.message,
+    required this.severity,
+    required this.timestamp,
+    this.metadata = const {},
+  });
+
+  factory PredictiveAlert.fromJson(Map<String, dynamic> json) {
+    DateTime ts;
+    final rawTs = json['timestamp'];
+    if (rawTs == null) {
+      ts = DateTime.now();
+    } else if (rawTs is num) {
+      ts = DateTime.fromMillisecondsSinceEpoch((rawTs * 1000).toInt());
+    } else {
+      try {
+        ts = DateTime.parse(rawTs.toString());
+      } catch (_) {
+        ts = DateTime.now();
+      }
+    }
+    final payload = json['payload'] is Map
+        ? Map<String, dynamic>.from(json['payload'])
+        : const <String, dynamic>{};
+    final resolvedMachineId =
+        (json['machine_id'] ?? payload['machine_id'] ?? json['source'] ?? '')
+            .toString();
+    final resolvedMessage =
+        (json['message'] ??
+                json['text'] ??
+                json['reason'] ??
+                payload['message'] ??
+                payload['reason'] ??
+                json['event_type'] ??
+                '')
+            .toString();
+
+    return PredictiveAlert(
+      id: json['id']?.toString() ?? json['event_id']?.toString() ?? '',
+      machineId: resolvedMachineId,
+      message: resolvedMessage,
+      severity: json['severity'] ?? 'info',
+      timestamp: ts,
+      metadata: Map<String, dynamic>.from(json['metadata'] ?? payload),
     );
   }
 }

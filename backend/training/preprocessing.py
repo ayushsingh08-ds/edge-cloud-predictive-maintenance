@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from scipy.signal import savgol_filter
 
 
 SENSOR_COLUMNS = [
@@ -36,6 +37,9 @@ SIM_SENSOR_FEATURE_SCHEMA = [
 	"wear",
 	"health",
 	"operating_time",
+	"queue_length",
+	"machine_utilization",
+	"routing_load",
 ]
 
 SIM_SENSOR_TO_DATASET = {
@@ -126,6 +130,15 @@ def choose_timestamp_column(df: pd.DataFrame) -> str | None:
 	return None
 
 
+def smooth_labels(df: pd.DataFrame, machine_col: str, target_col: str, window_len: int = 11, polyorder: int = 2) -> pd.DataFrame:
+	"""Apply Savitzky-Golay filter to smooth labels per machine."""
+	output = df.copy()
+	output[target_col] = output.groupby(machine_col)[target_col].transform(
+		lambda x: savgol_filter(x, window_len, polyorder) if len(x) >= window_len else x
+	)
+	return output
+
+
 def standardize(
 	train_df: pd.DataFrame, test_df: pd.DataFrame, feature_cols: list[str]
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, float]]]:
@@ -179,6 +192,8 @@ def preprocess_rul_dataset(
 	records_per_machine: int = 200,
 	event_break_score: int = 3,
 	feature_mode: str = "sensor_simulation",
+	max_rul: float | None = 125.0,
+	smoothing_window: int | None = 11,
 ) -> dict[str, Any]:
 	df = pd.read_csv(dataset_path)
 
@@ -211,7 +226,18 @@ def preprocess_rul_dataset(
 	df["cycle"] = df.groupby(machine_col).cumcount() + 1
 	df = df[df.groupby(machine_col)["cycle"].transform("max") >= window_size].copy()
 	max_cycle = df.groupby(machine_col)["cycle"].transform("max")
+	
+	# Calculate RUL
 	df["RUL"] = (max_cycle - df["cycle"]).astype(np.float32)
+	
+	# IMPROVEMENT: Clip RUL for Piecewise Linear implementation
+	if max_rul is not None:
+		df["RUL"] = df["RUL"].clip(upper=max_rul)
+		
+	# IMPROVEMENT: Smooth labels to reduce noise
+	if smoothing_window is not None:
+		df = smooth_labels(df, machine_col, "RUL", window_len=smoothing_window)
+
 	rul_mean = float(df["RUL"].mean())
 	rul_std = float(df["RUL"].std())
 	if rul_std == 0.0:
@@ -223,9 +249,17 @@ def preprocess_rul_dataset(
 	if feature_mode == "sensor_simulation":
 		for serving_feature in SIM_SENSOR_FEATURE_SCHEMA:
 			dataset_col = SIM_SENSOR_TO_DATASET.get(serving_feature)
+			
+			# If feature exists in dataset, map it
 			if dataset_col is not None and dataset_col in df.columns:
 				serving_features.append(serving_feature)
 				feature_mapping_used[serving_feature] = dataset_col
+			# IMPROVEMENT: If feature is a simulation-only feature, create it as zeros if missing
+			elif serving_feature in {"queue_length", "machine_utilization", "routing_load"}:
+				df[serving_feature] = 0.0
+				serving_features.append(serving_feature)
+				feature_mapping_used[serving_feature] = serving_feature
+				
 		feature_cols = [feature_mapping_used[name] for name in serving_features]
 	else:
 		feature_cols = [col for col in (SENSOR_COLUMNS + OPERATING_COLUMNS) if col in df.columns]

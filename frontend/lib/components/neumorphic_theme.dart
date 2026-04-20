@@ -1,44 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/layout_provider.dart';
 
 class NeumorphicColors {
-  static const Color background = Color(0xFFDEDBD2); // Soft Industrial Beige
-  static const Color lightShadow = Color(0xFFFFFFFF);
-  static const Color darkShadow = Color(0xFFB4B0A7);
-  static const Color accent = Color(0xFF8E806A); // Soft Brown
-  static const Color text = Color(0xFF4A4A4A);
-  static const Color machineIdle = Color(0xFFB5C99A); // Soft Green
-  static const Color machineBusy = Color(0xFF86A3B8); // Soft Blue
-  static const Color machineFailed = Color(0xFFE89F71); // Soft Orange/Red
-  static const Color machineMaintenance = Color(0xFF9BABB8); // Soft Grey
+  static Color background(bool isDark) => isDark ? const Color(0xFF292D32) : const Color(0xFFE8E4D9);
+  static Color lightShadow(bool isDark) => isDark ? const Color(0xFF32373D) : const Color(0xFFFFFFFF);
+  static Color darkShadow(bool isDark) => isDark ? const Color(0xFF1A1D20) : const Color(0xFFD1CDC0);
+  static Color accent(bool isDark) => isDark ? const Color(0xFFB3A58E) : const Color(0xFF8E806A);
+  static Color text(bool isDark) => isDark ? const Color(0xFFE8E4D9).withOpacity(0.9) : const Color(0xFF5D574E);
+
+  static Color machineIdle(bool isDark) => isDark ? const Color(0xFF90A17D) : const Color(0xFFB5C99A);
+  static Color machineBusy(bool isDark) => isDark ? const Color(0xFF6B8A9E) : const Color(0xFF86A3B8);
+  static Color machineFailed(bool isDark) => const Color(0xFFFF6B6B);
+  static Color machineMaintenance(bool isDark) => isDark ? const Color(0xFF7A8A96) : const Color(0xFF9BABB8);
 }
 
 class NeumorphicTheme {
-  static List<BoxShadow> elevatedShadows({double blurRadius = 10, Offset offset = const Offset(6, 6)}) {
+  static List<BoxShadow> elevatedShadows({bool isDark = false, double blurRadius = 10, Offset offset = const Offset(6, 6)}) {
     return [
       BoxShadow(
-        color: NeumorphicColors.lightShadow,
+        color: NeumorphicColors.lightShadow(isDark),
         offset: -offset,
         blurRadius: blurRadius,
       ),
       BoxShadow(
-        color: NeumorphicColors.darkShadow,
+        color: NeumorphicColors.darkShadow(isDark),
         offset: offset,
         blurRadius: blurRadius,
       ),
     ];
   }
 
-  static List<BoxShadow> insetShadows({double blurRadius = 10, Offset offset = const Offset(6, 6)}) {
-    // Inset is simulated in Flutter using a custom painter or by swapping colors
-    // For simplicity, we'll use darker colors for the top-left and lighter for the bottom-right
+  static List<BoxShadow> insetShadows({bool isDark = false, double blurRadius = 10, Offset offset = const Offset(6, 6)}) {
     return [
       BoxShadow(
-        color: NeumorphicColors.darkShadow,
+        color: NeumorphicColors.darkShadow(isDark),
         offset: -offset,
         blurRadius: blurRadius,
       ),
       BoxShadow(
-        color: NeumorphicColors.lightShadow,
+        color: NeumorphicColors.lightShadow(isDark),
         offset: offset,
         blurRadius: blurRadius,
       ),
@@ -46,14 +47,28 @@ class NeumorphicTheme {
   }
 
   static BoxDecoration decoration({
+    bool isDark = false,
     BorderRadius? borderRadius,
     Color? color,
     bool isPressed = false,
   }) {
     return BoxDecoration(
-      color: color ?? NeumorphicColors.background,
+      color: color ?? NeumorphicColors.background(isDark),
       borderRadius: borderRadius ?? BorderRadius.circular(16),
-      boxShadow: isPressed ? insetShadows() : elevatedShadows(),
+      boxShadow: isPressed ? insetShadows(isDark: isDark) : elevatedShadows(isDark: isDark),
+    );
+  }
+
+  static BoxDecoration glassDecoration({
+    bool isDark = false,
+    BorderRadius? borderRadius,
+    double opacity = 0.6,
+  }) {
+    return BoxDecoration(
+      color: NeumorphicColors.background(isDark).withOpacity(opacity),
+      borderRadius: borderRadius ?? BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withOpacity(isDark ? 0.05 : 0.2)),
+      boxShadow: elevatedShadows(isDark: isDark, blurRadius: 8, offset: const Offset(3, 3)),
     );
   }
 }
@@ -72,9 +87,10 @@ class NeumorphicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<LayoutProvider>(context).isDarkMode;
     return Container(
       padding: padding,
-      decoration: NeumorphicTheme.decoration(borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: NeumorphicTheme.decoration(isDark: isDark, borderRadius: BorderRadius.circular(borderRadius)),
       child: child,
     );
   }
@@ -103,6 +119,7 @@ class _NeumorphicButtonState extends State<NeumorphicButton> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<LayoutProvider>(context).isDarkMode;
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
@@ -114,6 +131,7 @@ class _NeumorphicButtonState extends State<NeumorphicButton> with SingleTickerPr
         duration: const Duration(milliseconds: 100),
         padding: EdgeInsets.all(widget.padding),
         decoration: NeumorphicTheme.decoration(
+          isDark: isDark,
           borderRadius: BorderRadius.circular(widget.borderRadius),
           isPressed: _isPressed,
         ),

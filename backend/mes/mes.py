@@ -38,6 +38,9 @@ class MachineMetrics:
     good_count: int = 0
     scrap_count: int = 0
     cycle_time_history: list[float] = field(default_factory=list)
+    total_production: int = 0
+    total_energy_kwh: float = 0.0
+    total_carbon_kg: float = 0.0
     active_job_start: float | None = None
 
     sensor_health_index: float = 1.0
@@ -76,6 +79,10 @@ class ManufacturingExecutionSystem:
         metrics = self._metrics_for(machine_id, event.timestamp)
         self._advance_time(metrics, event.timestamp)
 
+        payload = event.payload.get("metrics", {})
+        metrics.total_energy_kwh += payload.get("energy_kwh", 0.0)
+        metrics.total_carbon_kg += payload.get("carbon_impact", 0.0)
+        
         sensor = dict(event.payload.get("metrics", {}))
         metrics.sensor_health_index = self._sensor_health_index(sensor)
 
@@ -248,6 +255,9 @@ class ManufacturingExecutionSystem:
                 payload={
                     "machine_id": metrics.machine_id,
                     "health": round(metrics.machine_health, 4),
+                    "energy_total": round(metrics.total_energy_kwh, 2),
+                    "carbon_total": round(metrics.total_carbon_kg, 2),
+                    "state": metrics.state,
                     "sensor_health_index": round(metrics.sensor_health_index, 4),
                     "oee": round(metrics.oee, 4),
                     "availability": round(metrics.availability, 4),

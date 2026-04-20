@@ -11,7 +11,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LayoutProvider()),
-        ChangeNotifierProvider(create: (_) => SimulationProvider()..startSimulation()),
+        ChangeNotifierProvider(create: (_) => SimulationProvider()),
       ],
       child: const SmartFactoryApp(),
     ),
@@ -23,18 +23,26 @@ class SmartFactoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = Provider.of<LayoutProvider>(context);
     return MaterialApp(
       title: 'Smart Factory Layout Editor',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         textTheme: GoogleFonts.outfitTextTheme(),
-        scaffoldBackgroundColor: NeumorphicColors.background,
+        scaffoldBackgroundColor: NeumorphicColors.background(layout.isDarkMode),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: NeumorphicColors.accent,
-          background: NeumorphicColors.background,
+          seedColor: NeumorphicColors.accent(layout.isDarkMode),
+          surface: NeumorphicColors.background(layout.isDarkMode),
+          brightness: layout.isDarkMode ? Brightness.dark : Brightness.light,
         ),
       ),
+      builder: (context, child) {
+        return ExcludeSemantics(
+          excluding: true,
+          child: child!,
+        );
+      },
       home: const LayoutEditorScreen(),
     );
   }

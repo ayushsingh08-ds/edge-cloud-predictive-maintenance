@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 import json
+import logging
 from pathlib import Path
+import time
 from typing import Any
 
 import numpy as np
@@ -33,7 +35,7 @@ class PredictionService:
 	def _load_artifacts(self) -> None:
 		project_root = Path(__file__).resolve().parents[1]
 		metadata_path = self.metadata_path or project_root / "data" / "predictions" / "preprocessing_metadata.json"
-		model_path = self.model_path or project_root / "predictive_maintenance_cnn_lstm.keras"
+		metrics_path = project_root / "data" / "predictions" / "model_metrics.json"
 
 		if metadata_path.exists():
 			metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -69,15 +71,79 @@ class PredictionService:
 				"wear",
 				"health",
 				"operating_time",
+				"queue_length",
+				"machine_utilization",
+				"routing_load",
 			]
 
-		if model_path.exists():
+		candidate_model_paths: list[Path] = []
+		if self.model_path is not None:
+			candidate_model_paths.append(Path(self.model_path))
+
+		if metrics_path.exists():
 			try:
-				self._model = keras.models.load_model(model_path)
+				metrics_data = json.loads(metrics_path.read_text(encoding="utf-8"))
+				target_scaling = metrics_data.get("target_scaling", {})
+				if isinstance(target_scaling, dict):
+					self._target_scaling = {
+						"name": str(target_scaling.get("name", self._target_scaling.get("name", "standard_score"))),
+						"mean": float(target_scaling.get("mean", self._target_scaling.get("mean", 0.0))),
+						"std": float(target_scaling.get("std", self._target_scaling.get("std", 1.0))),
+					}
+				for key in ("model_path", "keras_model_path"):
+					raw_path = metrics_data.get(key)
+					if isinstance(raw_path, str) and raw_path.strip():
+						parsed_path = Path(raw_path)
+						if not parsed_path.is_absolute():
+							parsed_path = project_root / parsed_path
+						candidate_model_paths.append(parsed_path)
 			except Exception:
-				# Keep the backend operational even if the model artifact is incompatible
-				# with the current TensorFlow/Keras runtime in this environment.
-				self._model = None
+				pass
+
+		candidate_model_paths.extend(
+			[
+				project_root / "predictive_maintenance_cnn_lstm.keras",
+				project_root / "predictive_maintenance_cnn_lstm.h5",
+			]
+		)
+
+		seen: set[Path] = set()
+		for path in candidate_model_paths:
+			resolved = path.expanduser()
+			if resolved in seen:
+				continue
+			seen.add(resolved)
+			if not resolved.exists():
+				continue
+			try:
+				self._model = keras.models.load_model(resolved)
+				break
+			except Exception:
+				continue
+
+		if self._model is None:
+			# Keep the backend operational even if the model artifact is missing or incompatible
+			# with the current TensorFlow/Keras runtime in this environment.
+			return
+
+		input_shape = getattr(self._model, "input_shape", None)
+		if isinstance(input_shape, tuple) and len(input_shape) >= 3:
+			expected_features = int(input_shape[-1])
+			if expected_features > 0 and expected_features != len(self._feature_order):
+				defaults = [
+					"temperature",
+					"vibration",
+					"pressure",
+					"speed",
+					"load",
+					"flow",
+					"humidity",
+					"wear",
+					"health",
+					"operating_time",
+				]
+				merged = list(dict.fromkeys([*self._feature_order, *defaults]))
+				self._feature_order = merged[:expected_features]
 
 	def handle_sensor_reading(self, event: Event) -> None:
 		machine_id = str(event.payload.get("machine_id", event.source))
@@ -94,7 +160,13 @@ class PredictionService:
 			return
 
 		window_array = self._window_to_model_input(window)
+		start_time = time.perf_counter()
 		prediction_scaled = float(self._model.predict(window_array, verbose=0).reshape(-1)[0])
+		latency_ms = (time.perf_counter() - start_time) * 1000
+		
+		# Log latency for monitoring
+		logging.info(f"Machine {machine_id} prediction latency: {latency_ms:.2f}ms")
+
 		prediction = self._inverse_target_scale(prediction_scaled)
 		health_score = self._estimate_health_score(prediction, metrics)
 		risk_score = 1.0 - health_score
@@ -110,6 +182,7 @@ class PredictionService:
 					"health_score": round(health_score, 4),
 					"risk_score": round(risk_score, 4),
 					"window_size": self._window_size,
+					"latency_ms": round(latency_ms, 3),
 				},
 			)
 		)
@@ -151,6 +224,10 @@ class PredictionService:
 		values: dict[str, float] = {}
 		for feature in self._feature_order:
 			if feature not in metrics:
+				# Fallback for simulation metrics if missing (e.g. from real sensor feed without simulation engine)
+				if feature in {"queue_length", "machine_utilization", "routing_load"}:
+					values[feature] = 0.0
+					continue
 				return None
 			try:
 				values[feature] = float(metrics[feature])
@@ -176,9 +253,13 @@ class PredictionService:
 		return float((value - mean) / std)
 
 	def _inverse_target_scale(self, value: float) -> float:
+		mode = str(self._target_scaling.get("name", "standard_score"))
 		mean = self._target_scaling.get("mean", 0.0)
 		std = self._target_scaling.get("std", 1.0) or 1.0
-		return float(value * std + mean)
+		raw = float(value * std + mean)
+		if mode == "log1p_standard":
+			raw = float(np.expm1(raw))
+		return max(0.0, raw)
 
 	def _estimate_health_score(self, predicted_rul: float, metrics: dict[str, float]) -> float:
 		current_health = float(metrics.get("health", 1.0))
