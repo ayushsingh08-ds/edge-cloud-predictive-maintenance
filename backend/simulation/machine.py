@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+from threading import RLock
 
 import simpy
 
@@ -37,26 +38,57 @@ class Machine:
     failure_rate: float = 0.0
     sensor_interval: float = 1.0
     maintenance_duration: float = 0.0
+    predicted_health_score: float | None = None
+    predicted_rul_hours: float | None = None
+    utilization: float = 0.0
+    safety_mode_threshold: float = 0.3
+    safety_mode_multiplier: float = 1.25
+    dynamic_metrics: dict[str, float] = field(default_factory=dict, init=False)
     completed_jobs: list[Job] = field(default_factory=list)
+    _arrivals: list[float] = field(default_factory=list, repr=False)
+    _completions: list[float] = field(default_factory=list, repr=False)
+    _busy_start: float | None = field(default=None, init=False, repr=False)
+    total_busy_time: float = field(default=0.0, init=False)
     _rng: random.Random = field(init=False, repr=False)
+    _lock: RLock = field(default_factory=RLock, init=False, repr=False)
 
     def __post_init__(self) -> None:
         seed = sum(ord(ch) for ch in self.machine_id)
         self._rng = random.Random(seed)
         self.wear = min(1.0, max(0.0, self.wear))
         self.load_factor = min(1.0, max(0.0, self.load_factor))
+        if self.event_bus is not None:
+            self.event_bus.subscribe(EventType.HEALTH_UPDATE, self._handle_health_update)
+            self.event_bus.subscribe(EventType.RUL_PREDICTION, self._handle_rul_prediction)
 
     def is_available(self) -> bool:
         return self.status == MachineStatus.IDLE
 
     def processing_time_for_job(self, job: Job) -> float:
-        return float(job.processing_time_for_current_operation() if job.operation_count() > 0 else self.processing_time)
+        base_time = float(job.processing_time_for_current_operation() if job.operation_count() > 0 else self.processing_time)
+        health_score = self._effective_health_score()
+
+        if health_score < self.safety_mode_threshold:
+            return base_time * self.safety_mode_multiplier
+        
+        # Condition-Based Throttling (Slow Mode)
+        # If health is low, we slow down the machine to preserve it
+        # Below 50% health, time increases by up to 3x at 0% health
+        if self.health < 0.5:
+            multiplier = 1.0 + (0.5 - self.health) * 4.0 # 0.5 health -> 1.0x, 0.0 health -> 3.0x
+            return base_time * multiplier
+            
+        return base_time
 
     def assign_job(self, job: Job) -> None:
         if not self.is_available():
             raise RuntimeError(f"Machine {self.machine_id} is not available")
         self.current_job = job
         self.status = MachineStatus.BUSY
+        self._busy_start = self.environment.now
+        self._arrivals.append(self.environment.now)
+        # Prune old arrivals (> 60s)
+        self._arrivals = [t for t in self._arrivals if t > self.environment.now - 60.0]
         job.mark_in_process(self.environment.now)
         if self.event_bus is not None:
             self.event_bus.publish(
@@ -76,6 +108,13 @@ class Machine:
         job = self.current_job
         self.current_job = None
         self.status = MachineStatus.IDLE
+        if self._busy_start is not None:
+            self.total_busy_time += self.environment.now - self._busy_start
+            self._busy_start = None
+        self._completions.append(self.environment.now)
+        # Prune old completions (> 60s)
+        self._completions = [t for t in self._completions if t > self.environment.now - 60.0]
+
         if job is not None:
             has_next_operation = job.advance_operation()
             if not has_next_operation:
@@ -137,7 +176,73 @@ class Machine:
             "health": round(health, 4),
             "operating_time": round(self.operating_time, 3),
             "status": self.status.value,
+            "utilization": round(self.utilization, 4),
+            "energy_kwh": round(2.5 * active_load + 0.5 * self.wear, 4),
+            "carbon_impact": round((2.5 * active_load + 0.5 * self.wear) * 0.45, 4),
+            "congestion_risk": round(self.calculate_congestion_risk(), 3),
+            **self.dynamic_metrics
         }
+
+    def _effective_health_score(self) -> float:
+        if self.predicted_health_score is not None:
+            return max(0.0, min(1.0, float(self.predicted_health_score)))
+        return max(0.0, min(1.0, float(self.health)))
+
+    def _handle_health_update(self, event: Event) -> None:
+        machine_id = str(event.payload.get("machine_id", ""))
+        if machine_id != self.machine_id:
+            return
+        if event.source != "ml.prediction_service":
+            return
+        try:
+            health_score = float(event.payload.get("health", event.payload.get("health_score", self.health)))
+        except (TypeError, ValueError):
+            return
+        with self._lock:
+            self.predicted_health_score = max(0.0, min(1.0, health_score))
+
+    def _handle_rul_prediction(self, event: Event) -> None:
+        machine_id = str(event.payload.get("machine_id", ""))
+        if machine_id != self.machine_id:
+            return
+        if event.source != "ml.prediction_service":
+            return
+        try:
+            rul_hours = float(event.payload.get("remaining_useful_life", 0.0))
+        except (TypeError, ValueError):
+            return
+        with self._lock:
+            self.predicted_rul_hours = max(0.0, rul_hours)
+
+    def calculate_congestion_risk(self, window: float = 60.0) -> float:
+        """
+        Predicts the risk of this machine becoming a bottleneck.
+        Growth Rate = ArrivalRate / CompletionRate
+        """
+        now = self.environment.now
+        recent_arrivals = [t for t in self._arrivals if t > now - window]
+        recent_completions = [t for t in self._completions if t > now - window]
+
+        arrival_rate = len(recent_arrivals) / (window / 60.0) if window > 0 else 0
+        completion_rate = len(recent_completions) / (window / 60.0) if window > 0 else 0
+
+        # If we have arrivals but no completions yet (stalled), risk is high
+        if arrival_rate > 0 and completion_rate == 0:
+            return 0.8 if len(recent_arrivals) > 2 else 0.4
+
+        if completion_rate == 0:
+            return 0.0
+
+        growth_rate = arrival_rate / completion_rate
+
+        # Risk scales with growth rate
+        # 1.0 (stable) -> 0.4 risk
+        # 1.5 (growing) -> 0.8 risk
+        # > 2.0 (critical) -> 1.0 risk
+        if growth_rate <= 1.0:
+            return growth_rate * 0.4
+        else:
+            return min(1.0, 0.4 + (growth_rate - 1.0) * 0.8)
 
     def start_sensor_stream(self):
         return self.environment.process(self._sensor_loop())
@@ -161,14 +266,22 @@ class Machine:
                     payload={"machine_id": self.machine_id, "metrics": metrics},
                 )
             )
-            self.event_bus.publish(
-                Event(
-                    event_type=EventType.HEALTH_UPDATE,
-                    timestamp=self.environment.now,
-                    source=f"machine.{self.machine_id}",
-                    payload={"machine_id": self.machine_id, "health": self.health},
+            
+            # Bottleneck Early Warning System (5-10m Lookahead)
+            # If the growth rate is consistently high, we alert the operator early
+            if metrics.get("congestion_risk", 0.0) > 0.65:
+                self.event_bus.publish(
+                    Event(
+                        event_type=EventType.MAINTENANCE_TRIGGER, # We reuse this or add BOTTLENECK_ALERT
+                        timestamp=self.environment.now,
+                        source=f"machine.{self.machine_id}",
+                        payload={
+                            "machine_id": self.machine_id, 
+                            "severity": "high",
+                            "message": f"PREDICTIVE ALERT: Machine {self.machine_id} showing high bottleneck risk ({round(metrics.get('congestion_risk', 0.0) * 100)}%). Flow diverted."
+                        },
+                    )
                 )
-            )
 
     def fail(self) -> None:
         self.status = MachineStatus.FAILED
@@ -203,10 +316,10 @@ class Machine:
         if self.event_bus is not None:
             self.event_bus.publish(
                 Event(
-                    event_type=EventType.MAINTENANCE_TRIGGER,
+                    event_type=EventType.MAINTENANCE_STATE,
                     timestamp=self.environment.now,
                     source=f"machine.{self.machine_id}",
-                    payload={"machine_id": self.machine_id, "status": self.status.value},
+                    payload={"machine_id": self.machine_id, "status": self.status.value, "state": "maintenance"},
                 )
             )
         return self.environment.timeout(self.maintenance_duration)

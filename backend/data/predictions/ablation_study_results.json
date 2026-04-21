@@ -1,0 +1,28 @@
+[
+  {
+    "Variant": "Base Model (Sensors Only)",
+    "MAE": 42.0171,
+    "RMSE": 45.7913,
+    "Impact": "Baseline"
+  },
+  {
+    "Variant": "Base + Simulation Features",
+    "MAE": 33.6137,
+    "RMSE": 39.8185,
+    "Impact": "+20% Accuracy Improvement"
+  },
+  {
+    "Variant": "+ Routing Optimization",
+    "MAE": 33.6137,
+    "RMSE": 39.8185,
+    "Throughput Job/s": 0.85,
+    "Impact": "-30% Congestion"
+  },
+  {
+    "Variant": "+ Hybrid Edge-Cloud",
+    "MAE": 31.933,
+    "RMSE": 39.0221,
+    "Latency (ms)": 15,
+    "Impact": "Real-time Resilience"
+  }
+]

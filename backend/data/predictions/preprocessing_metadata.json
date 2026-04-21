@@ -15,7 +15,10 @@
     "humidity",
     "wear",
     "health",
-    "operating_time"
+    "operating_time",
+    "queue_length",
+    "machine_utilization",
+    "routing_load"
   ],
   "feature_mapping": {
     "temperature": "Temperature_Readings",
@@ -27,10 +30,13 @@
     "humidity": "Humidity_Levels",
     "wear": "Component_Degradation_Index",
     "health": "Machine_Health_Index",
-    "operating_time": "Cycle_Time_Per_Operation"
+    "operating_time": "Cycle_Time_Per_Operation",
+    "queue_length": "queue_length",
+    "machine_utilization": "machine_utilization",
+    "routing_load": "routing_load"
   },
   "window_size": 30,
-  "feature_count": 10,
+  "feature_count": 13,
   "features": [
     "Temperature_Readings",
     "Vibration_Level",
@@ -41,14 +47,17 @@
     "Humidity_Levels",
     "Component_Degradation_Index",
     "Machine_Health_Index",
-    "Cycle_Time_Per_Operation"
+    "Cycle_Time_Per_Operation",
+    "queue_length",
+    "machine_utilization",
+    "routing_load"
   ],
   "train_machines": 364,
   "test_machines": 91,
   "X_train_shape": [
     21512,
     30,
-    10
+    13
   ],
   "y_train_shape": [
     21512
@@ -56,56 +65,68 @@
   "X_test_shape": [
     4370,
     30,
-    10
+    13
   ],
   "y_test_shape": [
     4370
   ],
   "feature_scaling": {
     "temperature": {
-      "mean": 30.023896282256523,
-      "std": 5.007054284715311
+      "mean": 30.023896282256526,
+      "std": 5.007054284715309
     },
     "vibration": {
-      "mean": 0.499029252807716,
-      "std": 0.49882038103377907
+      "mean": 0.4990292528077161,
+      "std": 0.4988203810337778
     },
     "pressure": {
       "mean": 28.509553535429934,
-      "std": 15.925019166776753
+      "std": 15.92501916677667
     },
     "speed": {
       "mean": 49.88588249000144,
-      "std": 9.964588072744247
+      "std": 9.964588072744293
     },
     "load": {
       "mean": 69.94394702562319,
-      "std": 9.934931710016317
+      "std": 9.934931710016315
     },
     "flow": {
-      "mean": 100.10111126167426,
-      "std": 24.928062430221093
+      "mean": 100.10111126167428,
+      "std": 24.928062430221054
     },
     "humidity": {
       "mean": 20.177109180726077,
-      "std": 12.199649862030046
+      "std": 12.19964986203007
     },
     "wear": {
-      "mean": 4.9734302037337015,
-      "std": 4.99866033985281
+      "mean": 4.973430203733701,
+      "std": 4.9986603398528
     },
     "health": {
       "mean": 90.02068695546957,
-      "std": 5.0234069902585565
+      "std": 5.023406990258545
     },
     "operating_time": {
       "mean": 1.9985740715588323,
-      "std": 0.4975278626721589
+      "std": 0.497527862672158
+    },
+    "queue_length": {
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "machine_utilization": {
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "routing_load": {
+      "mean": 0.0,
+      "std": 1.0
     }
   },
   "target_scaling": {
     "name": "standard_score",
-    "mean": 62.53396987915039,
-    "std": 61.504703521728516
+    "mean": 54.41139221191406,
+    "std": 39.88184356689453
   }
 }

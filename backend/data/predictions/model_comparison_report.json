@@ -1,0 +1,26 @@
+[
+  {
+    "Model":"XGBoost",
+    "MAE":33.6137,
+    "RMSE":39.8185,
+    "R2":-0.0944,
+    "Critical MAE":38.2857,
+    "Over-Pred Rate":0.9995
+  },
+  {
+    "Model":"Transformer",
+    "MAE":38.6921,
+    "RMSE":46.7456,
+    "R2":-0.5083,
+    "Critical MAE":0.0,
+    "Over-Pred Rate":0.0
+  },
+  {
+    "Model":"CNN-LSTM",
+    "MAE":43.3597,
+    "RMSE":60.6953,
+    "R2":-0.2088,
+    "Critical MAE":0.0,
+    "Over-Pred Rate":0.0
+  }
+]

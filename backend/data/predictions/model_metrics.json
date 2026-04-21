@@ -1,17 +1,63 @@
 {
-  "rmse": 60.2365608215332,
-  "mae": 43.4479866027832,
-  "epochs_ran": 28,
+  "rmse": 60.6953239440918,
+  "mae": 43.35971450805664,
+  "mape_percent": 467.96045303344727,
+  "r2": -0.2087645744492821,
+  "bias": -1.1734849214553833,
+  "val_rmse": 24.520681381225586,
+  "val_mae": 17.37238121032715,
+  "epochs_ran": 14,
   "input_shape": [
     30,
     10
   ],
-  "model_path": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\predictive_maintenance_cnn_lstm.keras",
-  "keras_model_path": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\predictive_maintenance_cnn_lstm.keras",
-  "loss_plot": "C:\\Users\\AYUSH SINGH\\Documents\\GitHub\\edge-cloud-predictive-maintenance\\backend\\data\\predictions\\training_loss_vs_epochs.png",
+  "model_path": "predictive_maintenance_cnn_lstm.keras",
+  "keras_model_path": "predictive_maintenance_cnn_lstm.keras",
+  "loss_plot": "data/predictions/training_loss_vs_epochs.png",
+  "selected_recipe": {
+    "name": "cnn_bilstm_standard",
+    "variant": "cnn_bilstm",
+    "selection_metric": "val_loss",
+    "selected_val_rmse": 24.520681381225586
+  },
+  "training_recipe": {
+    "validation_fraction": 0.15,
+    "batch_size": 512,
+    "max_epochs": 14,
+    "loss": "huber(delta=1.0)",
+    "optimizer": "Adam(lr=1e-3, clipnorm=1.0)",
+    "sample_weighting": "smooth_low_rul_exponential",
+    "target_scaling": "standard_score",
+    "inference": "mc_dropout(n=5)"
+  },
+  "critical_zone": {
+    "rul_lte_30": {
+      "count": 2040.0,
+      "mae": 38.6478157043457,
+      "rmse": 47.521034240722656,
+      "over_pred_rate": 0.9431372549019608
+    },
+    "rul_lte_15": {
+      "count": 1224.0,
+      "mae": 45.20735549926758,
+      "rmse": 52.67892837524414,
+      "over_pred_rate": 0.9975490196078431
+    }
+  },
+  "production_readiness": {
+    "status": "not_ready",
+    "passed": false,
+    "gates": {
+      "rmse_le_45": false,
+      "mae_le_30": false,
+      "critical_rul30_mae_le_18": false,
+      "r2_ge_0": false,
+      "critical_over_pred_rate_le_0_3": false
+    }
+  },
   "target_scaling": {
     "name": "standard_score",
-    "mean": 62.53396987915039,
-    "std": 61.504703521728516
+    "mean": 59.883880615234375,
+    "std": 63.34538269042969
   }
 }

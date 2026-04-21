@@ -5,193 +5,361 @@ import '../models/models.dart';
 
 class ApiService {
   final String baseUrl;
-  final String wsUrl;
 
-  ApiService({
-    this.baseUrl = 'http://127.0.0.1:8001',
-    this.wsUrl = 'ws://127.0.0.1:8001/ws/events',
-  });
+  ApiService({this.baseUrl = 'http://127.0.0.1:8005'});
 
-  // Health & Catalog
-  Future<Map<String, dynamic>?> getHealth() async {
+  Future<ApiResponse> _wrap(Future<http.Response> request) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/health'));
-      if (response.statusCode == 200) return jsonDecode(response.body);
-      return null;
+      final response = await request;
+      final data = jsonDecode(response.body);
+      return ApiResponse(
+        success: response.statusCode >= 200 && response.statusCode < 300,
+        statusCode: response.statusCode,
+        data: data,
+        message: data is Map ? data['detail'] ?? data['message'] : null,
+      );
     } catch (e) {
-      return null;
+      return ApiResponse(success: false, message: e.toString());
     }
   }
 
-  Future<List<Map<String, dynamic>>?> getCatalog() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/catalog/components'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['components'] ?? []);
+  // ─── Layout ────────────────────────────────────────────────────────────────
+
+  Future<LayoutGraph?> getLayout() async {
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/layout/current')),
+    );
+    if (response.success && response.data != null) {
+      final graphData = response.data['graph'];
+      if (graphData is Map<String, dynamic>) {
+        return LayoutGraph.fromJson(graphData);
       }
-      return null;
-    } catch (e) {
-      return null;
     }
+    return null;
   }
 
-  // Granular Layout Sync
-  Future<bool> addNode(LayoutNode node) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/layout/node/add'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(node.toJson()),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
+  Future<LayoutGraph?> loadLayout() => getLayout();
 
-  Future<bool> updateNode(LayoutNode node) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/layout/node/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(node.toJson()),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteNode(String nodeId) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/layout/node/delete'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'id': nodeId}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> addEdge(LayoutEdge edge) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/layout/edge/add'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(edge.toJson()),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> deleteEdge(String fromNode, String toNode) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/layout/edge/delete'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'from_node': fromNode, 'to_node': toNode}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-  Future<FactoryLayout?> loadLayout() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/layout/current'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return FactoryLayout.fromJson(data['graph'] ?? data);
-      }
-      return null;
-    } catch (e) {
+  Future<int?> getNodeQueueSize(String nodeId) async {
+    final response = await _wrap(http.get(Uri.parse('$baseUrl/nodes/$nodeId')));
+    if (!response.success || response.data == null) {
       return null;
     }
+
+    final raw = response.data['queue_size'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 
-  // Simulation Controls
+  Future<ApiResponse> updateLayout(LayoutGraph graph) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(graph.toJson()),
+    ),
+  );
+
+  Future<List<dynamic>?> getCatalog() async {
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/catalog/components')),
+    );
+    if (response.success && response.data != null) {
+      return response.data['components'] as List<dynamic>;
+    }
+    return null;
+  }
+
+  // ─── Node CRUD (matches backend /layout/node/add etc.) ────────────────────
+
+  Future<ApiResponse> addNode(LayoutNode node) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout/node/add'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(node.toJson()),
+    ),
+  );
+
+  Future<ApiResponse> updateNode(LayoutNode node) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout/node/update'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'node_id': node.id,
+        'patch': {
+          'position': {'x': node.position.x, 'y': node.position.y},
+          'properties': node.properties,
+        },
+      }),
+    ),
+  );
+
+  Future<ApiResponse> deleteNode(String nodeId) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout/node/delete'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'node_id': nodeId}),
+    ),
+  );
+
+  // ─── Edge CRUD ─────────────────────────────────────────────────────────────
+
+  Future<ApiResponse> addEdge(LayoutEdge edge) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout/edge/add'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(edge.toJson()),
+    ),
+  );
+
+  Future<ApiResponse> deleteEdge(String fromNode, String toNode) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/layout/edge/delete'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'from_node': fromNode, 'to_node': toNode}),
+    ),
+  );
+
+  // ─── Simulation ────────────────────────────────────────────────────────────
+
   Future<SimulationState?> getSimulationState() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/simulation/state'));
-      if (response.statusCode == 200) {
-        return SimulationState.fromJson(jsonDecode(response.body));
-      }
-      return null;
-    } catch (e) {
-      return null;
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/simulation/state')),
+    );
+    if (response.success && response.data != null) {
+      return SimulationState.fromJson(response.data);
     }
+    return null;
   }
 
-  Future<bool> toggleSimulation(bool enabled) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/simulation/toggle'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'enabled': enabled}),
+  Future<ApiResponse> setSimulationState(bool enabled) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/simulation/toggle'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'enabled': enabled}),
+    ),
+  );
+
+  Future<ApiResponse> setSpeed(double speed) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/simulation/speed'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'speed_multiplier': speed}),
+    ),
+  );
+
+  // ─── Metrics ───────────────────────────────────────────────────────────────
+
+  Future<Map<String, MachineMetrics>> getLatestMetrics() async {
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/metrics/machines')),
+    );
+    if (response.success && response.data is Map) {
+      final Map<String, dynamic> raw = response.data;
+      return raw.map(
+        (key, value) => MapEntry(key, MachineMetrics.fromJson(value)),
       );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
     }
+    return {};
   }
 
-  Future<bool> setSimulationSpeed(double speed) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/simulation/speed'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'speed_multiplier': speed}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<Map<String, dynamic>?> runSimulationStep(double duration) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/simulation/run?duration=$duration'),
-      );
-      if (response.statusCode == 200) return jsonDecode(response.body);
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Metrics & Alerts
   Future<GlobalMetrics?> getGlobalMetrics() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/metrics/global'));
-      if (response.statusCode == 200) {
-        return GlobalMetrics.fromJson(jsonDecode(response.body));
-      }
-      return null;
-    } catch (e) {
-      return null;
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/metrics/global')),
+    );
+    if (response.success && response.data != null) {
+      return GlobalMetrics.fromJson(response.data);
     }
+    return null;
   }
 
-  Future<List<dynamic>> getRecentAlerts({int limit = 20}) async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/alerts/recent?limit=$limit'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['alerts'] ?? [];
-      }
-      return [];
-    } catch (e) {
-      return [];
+  Future<List<PredictiveAlert>> getAlerts() async {
+    final response = await _wrap(http.get(Uri.parse('$baseUrl/alerts/recent')));
+    if (response.success &&
+        response.data != null &&
+        response.data['alerts'] is List) {
+      return (response.data['alerts'] as List)
+          .map((e) => PredictiveAlert.fromJson(e))
+          .toList();
     }
+    return [];
+  }
+
+  Future<List<dynamic>> getRecentAlerts({int limit = 100}) async {
+    final alerts = await getAlerts();
+    return alerts
+        .map(
+          (a) => {
+            'severity': a.severity,
+            'message': a.message,
+            'timestamp': a.timestamp.toIso8601String(),
+            'machine_id': a.machineId,
+          },
+        )
+        .toList();
+  }
+
+  Future<List<dynamic>> getRecentEvents({int limit = 200}) async {
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/events/recent?limit=$limit')),
+    );
+    if (response.success &&
+        response.data != null &&
+        response.data['events'] != null) {
+      return response.data['events'] as List<dynamic>;
+    }
+    return [];
+  }
+
+  Future<bool> checkHealth() async {
+    Future<bool> probe(String path) async {
+      try {
+        final response = await http
+            .get(Uri.parse('$baseUrl$path'))
+            .timeout(const Duration(seconds: 2));
+        return response.statusCode >= 200 && response.statusCode < 300;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    final results = await Future.wait([
+      probe('/health'),
+      probe('/simulation/state'),
+      probe('/layout/current'),
+      probe('/events/recent?limit=1'),
+    ]);
+    return results.any((ok) => ok);
+  }
+
+  Future<ApiResponse> toggleSimulation(bool enabled) =>
+      setSimulationState(enabled);
+
+  Future<ApiResponse> runSimulationStep(double duration) =>
+      _wrap(http.post(Uri.parse('$baseUrl/simulation/run?duration=$duration')));
+
+  Future<ApiResponse> setSimulationSpeed(double speed) => setSpeed(speed);
+
+  // ─── Validation & Scenarios ────────────────────────────────────────────────
+
+  Future<ApiResponse> validateLayout([LayoutGraph? graph]) async {
+    final payload = graph?.toJson() ?? (await getLayout())?.toJson();
+    if (payload == null) {
+      return ApiResponse(
+        success: false,
+        message: 'No layout available to validate',
+      );
+    }
+
+    return _wrap(
+      http.post(
+        Uri.parse('$baseUrl/layout/validate'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ),
+    );
+  }
+
+  Future<ApiResponse> runWhatIfScenario(
+    Map<String, dynamic> scenario,
+    double lookahead,
+  ) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/simulation/what_if'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'scenario': scenario, 'lookahead': lookahead}),
+    ),
+  );
+
+  Future<ApiResponse> loadScenario(String scenarioId) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/scenarios/load'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'scenario_id': scenarioId}),
+    ),
+  );
+
+  Future<List<dynamic>> listScenarios() async {
+    final response = await _wrap(http.get(Uri.parse('$baseUrl/scenarios')));
+    if (response.success && response.data != null) {
+      return response.data['scenarios'] as List<dynamic>? ?? [];
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>?> getRoutingPolicy() async {
+    final response = await _wrap(
+      http.get(Uri.parse('$baseUrl/routing/policy')),
+    );
+    if (response.success && response.data != null) {
+      return Map<String, dynamic>.from(response.data);
+    }
+    return null;
+  }
+
+  Future<ApiResponse> setRoutingPolicy(String policy) => _wrap(
+    http.post(
+      Uri.parse('$baseUrl/routing/policy'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'policy': policy}),
+    ),
+  );
+
+  Future<ApiResponse> patchRoutingPolicy(String policy) => _wrap(
+    http.patch(
+      Uri.parse('$baseUrl/routing/policy'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'policy': policy}),
+    ),
+  );
+
+  Future<ApiResponse> applyOptimizationPolicy(String policy) async {
+    final normalizedPolicy = _normalizeRoutingPolicy(policy);
+    final patched = await patchRoutingPolicy(normalizedPolicy);
+    if (patched.success) {
+      return patched;
+    }
+    return setRoutingPolicy(normalizedPolicy);
+  }
+
+  String _normalizeRoutingPolicy(String policy) {
+    final raw = policy
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+    const aliasMap = {
+      'pdm_priority': 'weighted_cost',
+      'shortest_queue': 'least_loaded',
+      'balanced': 'round_robin',
+    };
+    return aliasMap[raw] ?? raw;
+  }
+
+  // ─── WebSocket ────────────────────────────────────────────────────────────
+
+  Uri eventsWebSocketUri() {
+    final httpUri = Uri.parse(baseUrl);
+    final scheme = httpUri.scheme == 'https' ? 'wss' : 'ws';
+    return httpUri.replace(scheme: scheme, path: '/ws/events');
   }
 
   WebSocketChannel connectToEvents() {
-    return WebSocketChannel.connect(Uri.parse(wsUrl));
+    return WebSocketChannel.connect(eventsWebSocketUri());
   }
+}
+
+class ApiResponse {
+  final bool success;
+  final int? statusCode;
+  final String? message;
+  final dynamic data;
+
+  ApiResponse({
+    required this.success,
+    this.statusCode,
+    this.message,
+    this.data,
+  });
 }
