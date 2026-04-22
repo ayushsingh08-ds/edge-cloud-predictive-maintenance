@@ -8,7 +8,7 @@ This repository contains the official implementation of the **Edge-Cloud Smart F
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The framework is split into two primary layers:
 1.  **Cloud Layer (Backend)**: Handles heavy-duty training (CNN-LSTM), data persistence (SQLite/SQLAlchemy), and the Simulation Engine (SimPy).
@@ -22,7 +22,7 @@ The framework is split into two primary layers:
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
 *   **Predictive Maintenance**: CNN-LSTM model achieving **RMSE: 57.29** on the IndFD-PM-DT dataset.
 *   **Routing-Aware Simulation**: Adaptive routing policies (Weighted Cost, Least Loaded, Round Robin) that respond to predicted machine failures.
@@ -31,7 +31,7 @@ The framework is split into two primary layers:
 
 ---
 
-## 🛠️ Installation & Setup
+##  Installation & Setup
 
 ### Backend (Python)
 1. Navigate to the backend directory:
@@ -63,7 +63,7 @@ The framework is split into two primary layers:
 
 ---
 
-## 📊 Reproducing Research Results
+##  Reproducing Research Results
 
 To verify the metrics (RMSE/MAE) reported in the paper:
 ```bash
@@ -73,7 +73,7 @@ This script will load the saved `.keras` model and evaluate it against the held-
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```text
 ├── backend/
@@ -89,7 +89,7 @@ This script will load the saved `.keras` model and evaluate it against the held-
 
 ---
 
-## 📝 Citation
+##  Citation
 
 If you use this work in your research, please cite:
 
