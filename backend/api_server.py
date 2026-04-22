@@ -573,7 +573,21 @@ class DigitalTwinRuntime:
 					"downtime": round(metrics.downtime, 4),
 					"energy_total": round(metrics.total_energy_kwh, 4),
 					"carbon_total": round(metrics.total_carbon_kg, 4),
+					"is_buffer": False
 				}
+			
+			if engine is not None:
+				for buf_id, buf in engine._buffers.items():
+					capacity = buf.capacity or 100
+					occupancy = len(buf) / capacity
+					output[buf_id] = {
+						"machine_id": buf_id,
+						"state": "Busy" if len(buf) > 0 else "Idle",
+						"health": 1.0,
+						"queue_length": len(buf),
+						"congestion_risk": round(occupancy, 4),
+						"is_buffer": True
+					}
 			return output
 
 	def recent_alerts(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -996,6 +1010,14 @@ async def ws_events(websocket: WebSocket, last_seq: int = -1) -> None:
 					"payload": metrics,
 					"timestamp": metrics.get("environment_time", 0)
 				}))
+				
+				# Also broadcast machine-specific metrics periodically
+				machine_data = runtime.machine_metrics()
+				if machine_data:
+					await websocket.send_text(json.dumps({
+						"event_type": "MACHINE_METRICS_UPDATE",
+						"payload": machine_data
+					}))
 			except (WebSocketDisconnect, RuntimeError):
 				break
 			except Exception as e:

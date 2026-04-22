@@ -11,10 +11,10 @@ import '../providers/simulation_provider.dart';
 import '../models/models.dart';
 
 class LayoutEditorScreen extends StatefulWidget {
-  const LayoutEditorScreen({Key? key}) : super(key: key);
+  const LayoutEditorScreen({super.key});
 
   @override
-  _LayoutEditorScreenState createState() => _LayoutEditorScreenState();
+  State<LayoutEditorScreen> createState() => _LayoutEditorScreenState();
 }
 
 class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
@@ -924,7 +924,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
 }
 
 class DashboardPanel extends StatelessWidget {
-  const DashboardPanel({Key? key}) : super(key: key);
+  const DashboardPanel({super.key});
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<SimulationProvider>(context);
@@ -1066,9 +1066,7 @@ class DashboardPanel extends StatelessWidget {
                             ),
                           ),
                         ),
-                      )
-                      .toList(),
-                  // Event Log Section
+                      ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Text(
@@ -1121,7 +1119,7 @@ class DashboardPanel extends StatelessWidget {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

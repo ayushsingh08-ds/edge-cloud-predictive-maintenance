@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'providers/layout_provider.dart';
 import 'providers/simulation_provider.dart';
 import 'screens/layout_editor_screen.dart';
+import 'screens/dashboard_3d_screen.dart';
 import 'components/neumorphic_theme.dart';
 
 void main() {
@@ -43,7 +44,11 @@ class SmartFactoryApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const LayoutEditorScreen(),
+      home: Consumer<LayoutProvider>(
+        builder: (context, layout, _) {
+          return layout.show3D ? const Dashboard3DScreen() : const LayoutEditorScreen();
+        },
+      ),
     );
   }
 }

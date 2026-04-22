@@ -48,6 +48,7 @@ class LayoutNode {
   LayoutPosition position;
   final Map<String, dynamic> properties;
   final int queueSize;
+  final int level;
 
   LayoutNode({
     required this.id,
@@ -55,6 +56,7 @@ class LayoutNode {
     required this.position,
     this.properties = const {},
     this.queueSize = 0,
+    this.level = 1,
   });
 
   Map<String, dynamic> toJson() => {
@@ -71,6 +73,7 @@ class LayoutNode {
       position: LayoutPosition.fromJson(json['position']),
       properties: Map<String, dynamic>.from(json['properties'] ?? {}),
       queueSize: json['queue_size'] ?? 0,
+      level: json['level'] ?? 1,
     );
   }
 
@@ -80,6 +83,7 @@ class LayoutNode {
     LayoutPosition? position,
     Map<String, dynamic>? properties,
     int? queueSize,
+    int? level,
   }) {
     return LayoutNode(
       id: id ?? this.id,
@@ -87,6 +91,7 @@ class LayoutNode {
       position: position ?? this.position,
       properties: properties ?? Map<String, dynamic>.from(this.properties),
       queueSize: queueSize ?? this.queueSize,
+      level: level ?? this.level,
     );
   }
 }
@@ -182,6 +187,8 @@ class MachineMetrics {
   final double energyTotal;
   final double carbonTotal;
   final double? scheduledMaintenance;
+  final Map<String, double> shapImportance;
+  final double confidenceScore;
 
   MachineMetrics({
     required this.machineId,
@@ -199,7 +206,12 @@ class MachineMetrics {
     this.energyTotal = 0.0,
     this.carbonTotal = 0.0,
     this.scheduledMaintenance,
+    this.shapImportance = const {},
+    this.confidenceScore = 1.0,
+    this.isBuffer = false,
   });
+
+  final bool isBuffer;
 
   factory MachineMetrics.fromJson(Map<String, dynamic> json) {
     return MachineMetrics(
@@ -229,6 +241,13 @@ class MachineMetrics {
       energyTotal: (json['energy_total'] as num?)?.toDouble() ?? 0.0,
       carbonTotal: (json['carbon_total'] as num?)?.toDouble() ?? 0.0,
       scheduledMaintenance: (json['scheduled_maintenance'] as num?)?.toDouble(),
+      shapImportance: Map<String, double>.from(
+        (json['shap_importance'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+        ),
+      ),
+      confidenceScore: (json['confidence_score'] as num?)?.toDouble() ?? 1.0,
+      isBuffer: json['is_buffer'] == true,
     );
   }
 
@@ -246,6 +265,8 @@ class MachineMetrics {
     double? load,
     double? congestionRisk,
     double? scheduledMaintenance,
+    Map<String, double>? shapImportance,
+    double? confidenceScore,
   }) {
     return MachineMetrics(
       machineId: machineId ?? this.machineId,
@@ -261,6 +282,8 @@ class MachineMetrics {
       load: load ?? this.load,
       congestionRisk: congestionRisk ?? this.congestionRisk,
       scheduledMaintenance: scheduledMaintenance ?? this.scheduledMaintenance,
+      shapImportance: shapImportance ?? this.shapImportance,
+      confidenceScore: confidenceScore ?? this.confidenceScore,
     );
   }
 }

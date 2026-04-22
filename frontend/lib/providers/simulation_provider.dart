@@ -8,6 +8,20 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 
+class JobParticle {
+  final String edgeId;
+  final String fromNode;
+  final String toNode;
+  final DateTime startTime;
+
+  JobParticle({
+    required this.edgeId,
+    required this.fromNode,
+    required this.toNode,
+    required this.startTime,
+  });
+}
+
 class SimulationProvider with ChangeNotifier {
   final Map<String, MachineMetrics> _machineMetrics = {};
   final Map<String, List<double>> _healthHistory = {};
@@ -19,6 +33,7 @@ class SimulationProvider with ChangeNotifier {
   final List<Map<String, dynamic>> _logsFeed = [];
   final Map<String, List<Offset>> _activeJobs = {}; // Map of edgeId -> List of progress offsets
   final Map<String, Set<String>> _nodeToActiveJobs = {}; // nodeId -> Set of jobIds currently at node
+  final List<JobParticle> _activeParticles = []; // For 3D Flow Animation
 
   List<dynamic> _recentEvents = [];
   List<dynamic> _recentAlerts = [];
@@ -67,6 +82,13 @@ class SimulationProvider with ChangeNotifier {
   List<dynamic> get recentEvents => _recentEvents;
   List<dynamic> get recentAlerts => _recentAlerts;
   Map<String, List<Offset>> get activeJobs => _activeJobs;
+  
+  List<JobParticle> get activeParticles {
+    final now = DateTime.now();
+    _activeParticles.removeWhere((p) => now.difference(p.startTime).inMilliseconds > 1500);
+    return _activeParticles;
+  }
+  
   Set<String> jobsAtNode(String nodeId) => _nodeToActiveJobs[nodeId] ?? {};
   GlobalMetrics? get globalMetrics => _globalMetrics;
   bool get isSimulating => _isSimulating;
@@ -134,10 +156,37 @@ class SimulationProvider with ChangeNotifier {
     _backendConnected = true;
   }
 
+  Future<void> toggleSimulation() async {
+    final targetState = !_isSimulating;
+    final response = await _apiService.toggleSimulation(targetState);
+    if (response.success) {
+      _isSimulating = targetState;
+      if (_isSimulating && !_isWsConnected) {
+        _connectWebSocket();
+      }
+      _appendLog('Simulation ${targetState ? 'STARTED' : 'PAUSED'}.');
+      notifyListeners();
+    } else {
+      _handleError(response);
+    }
+  }
+
+  Future<void> setSpeedMultiplier(double speed) async {
+    final response = await _apiService.setSimulationSpeed(speed);
+    if (response.success) {
+      _speedMultiplier = speed;
+      _appendLog('Simulation speed set to ${speed.toStringAsFixed(1)}x.');
+      notifyListeners();
+    } else {
+      _handleError(response);
+    }
+  }
+
   Future<void> initialize() async {
     _startHealthCheck();
     final state = await _apiService.getSimulationState();
     await _syncGlobalMetricsSnapshot(notify: false);
+    await _syncMachineMetricsSnapshot(notify: false);
     if (state != null) {
       _isSimulating = state.enabled;
       _speedMultiplier = state.speedMultiplier;
@@ -210,6 +259,18 @@ class SimulationProvider with ChangeNotifier {
     _applyGlobalMetrics(snapshot, notify: notify);
   }
 
+  Future<void> _syncMachineMetricsSnapshot({bool notify = true}) async {
+    try {
+      final metricsMap = await _apiService.getLatestMetrics();
+      if (metricsMap.isNotEmpty) {
+        _machineMetrics.addAll(metricsMap);
+        if (notify) notifyListeners();
+      }
+    } catch (e) {
+      _lastError = 'Failed to sync machine metrics: $e';
+    }
+  }
+
   Future<void> startSimulation() async {
     if (_isSimulating) return;
 
@@ -277,6 +338,9 @@ class SimulationProvider with ChangeNotifier {
         _connectWebSocket();
       }
       if (onLayoutChanged != null) onLayoutChanged!();
+      
+      await _syncGlobalMetricsSnapshot(notify: false);
+      await _syncMachineMetricsSnapshot(notify: false);
       notifyListeners();
     } else {
       _handleError(response);
@@ -410,6 +474,20 @@ class SimulationProvider with ChangeNotifier {
       if (event == null) return;
 
       final eventType = (event['event_type'] ?? '').toString();
+      if (eventType == 'MACHINE_METRICS_UPDATE') {
+        final payload = event['payload'];
+        if (payload is Map) {
+          payload.forEach((key, value) {
+            if (value is Map) {
+              final metrics = MachineMetrics.fromJson(Map<String, dynamic>.from(value));
+              _machineMetrics[key.toString().toLowerCase()] = metrics;
+            }
+          });
+          notifyListeners();
+        }
+        return;
+      }
+
       if (eventType == 'GLOBAL_METRICS') {
         _handleGlobalMetrics(Map<String, dynamic>.from(event['payload'] ?? {}));
         return;
@@ -495,6 +573,14 @@ class SimulationProvider with ChangeNotifier {
         // Notify UI to start animation on this edge
         if (onRoutingDecision != null) onRoutingDecision!(edgeId);
         _nodeToActiveJobs[from]?.remove(jobId);
+        
+        // Add particle for 3D Flow Animation
+        _activeParticles.add(JobParticle(
+          edgeId: edgeId,
+          fromNode: from,
+          toNode: to,
+          startTime: DateTime.now(),
+        ));
       } else if (state == 'delivered' && to.isNotEmpty) {
         _nodeToActiveJobs.putIfAbsent(to, () => {}).add(jobId);
         notifyListeners();
@@ -758,6 +844,12 @@ class SimulationProvider with ChangeNotifier {
           utilization: _parseNum(payload, [
             'utilization',
           ], fallback: metrics.utilization),
+          shapImportance: Map<String, double>.from(
+            (payload['shap_importance'] as Map? ?? {}).map(
+              (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+            ),
+          ),
+          confidenceScore: _parseNum(payload, ['confidence_score'], fallback: metrics.confidenceScore),
         );
         break;
       case 'RUL_PREDICTION':
@@ -767,6 +859,12 @@ class SimulationProvider with ChangeNotifier {
             'rul',
             'remaining_life',
           ], fallback: metrics.remainingUsefulLife),
+          shapImportance: Map<String, double>.from(
+            (payload['shap_importance'] as Map? ?? {}).map(
+              (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+            ),
+          ),
+          confidenceScore: _parseNum(payload, ['confidence_score'], fallback: metrics.confidenceScore),
         );
         break;
       case 'JOB_START':

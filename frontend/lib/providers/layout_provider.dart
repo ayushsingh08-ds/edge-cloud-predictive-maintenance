@@ -39,6 +39,7 @@ class LayoutProvider with ChangeNotifier {
   bool _isDarkMode = false;
   bool _isometricMode = false;
   AppMode _activeMode = AppMode.showcase;
+  bool _show3D = true;
 
   Set<String> _highlightedEdges = {};
   Set<String> _candidateEdges = {};
@@ -62,10 +63,15 @@ class LayoutProvider with ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool get isometricMode => _isometricMode;
   AppMode get activeMode => _activeMode;
+  bool get show3D => _show3D;
 
   void setAppMode(AppMode mode) {
     if (_activeMode == mode) return;
     _activeMode = mode;
+    
+    // Automatically switch to 3D for Showcase mode
+    _show3D = (mode == AppMode.showcase);
+    
     if (mode == AppMode.engineering) {
       clearLayout();
     } else {
@@ -102,6 +108,18 @@ class LayoutProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void toggle3D() {
+    _show3D = !_show3D;
+    if (!_show3D) {
+      _activeMode = AppMode.engineering;
+      clearLayout();
+    } else {
+      _activeMode = AppMode.showcase;
+      refreshLayout(force: true);
+    }
+    notifyListeners();
+  }
+
   void setHighlightedEdges(Set<String> edgeIds) {
     _highlightedEdges = edgeIds;
     notifyListeners();
@@ -123,8 +141,21 @@ class LayoutProvider with ChangeNotifier {
 
   void setNodes(List<LayoutNode> nodes) {
     _nodes.clear();
-    _nodes.addAll(nodes);
+    _nodes.addAll(nodes.map((n) => _applyLevelLogic(n)));
     notifyListeners();
+  }
+
+  LayoutNode _applyLevelLogic(LayoutNode node) {
+    final id = node.id.toLowerCase();
+    int level = 1;
+    if (id.startsWith('asm') || id.contains('qc') || id.contains('sink')) {
+      level = 3;
+    } else if (id.startsWith('pre') || id.startsWith('process')) {
+      level = 2;
+    } else if (id.startsWith('src') || id.startsWith('raw')) {
+      level = 1;
+    }
+    return node.copyWith(level: level);
   }
 
   void setEdges(List<LayoutEdge> edges) {
@@ -256,12 +287,12 @@ class LayoutProvider with ChangeNotifier {
   Future<void> addNode(LayoutNodeType type, Offset position) async {
     final snappedX = snapToGrid(position.dx);
     final snappedY = snapToGrid(position.dy);
-    final newNode = LayoutNode(
+    final newNode = _applyLevelLogic(LayoutNode(
       id: '${type.value.toLowerCase()}-${_uuid.v4().substring(0, 4)}',
       type: type,
       position: LayoutPosition(x: snappedX, y: snappedY),
       properties: Map<String, dynamic>.from(_catalogDefaults[type.value] ?? {}),
-    );
+    ));
     _isModifying = true;
     _nodes.add(newNode);
     _selectedNodeId = newNode.id;
@@ -598,7 +629,7 @@ class LayoutProvider with ChangeNotifier {
         }
 
         _nodes.clear();
-        _nodes.addAll(filteredNodes);
+        _nodes.addAll(filteredNodes.map((n) => _applyLevelLogic(n)));
         _edges.clear();
         _edges.addAll(current.edges);
 
