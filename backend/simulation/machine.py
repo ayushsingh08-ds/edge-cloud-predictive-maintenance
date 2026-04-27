@@ -164,6 +164,16 @@ class Machine:
         flow = 120.0 + 110.0 * active_load - 70.0 * wear_effect + self._rng.uniform(-3.0, 3.0)
         humidity = 40.0 + 8.0 * active_load + 9.0 * wear_effect + self._rng.uniform(-1.0, 1.0)
 
+        # Sustainability & Green Logistics: Dynamic Energy Consumption
+        # Power draw increases as RUL decreases (representing mechanical strain)
+        rul_factor = 1.0
+        if self.predicted_rul_hours is not None:
+            # Nominal RUL assumed at 100. At 0 RUL, consumption increases by up to 80%
+            rul_factor = 1.0 + max(0.0, (60.0 - self.predicted_rul_hours) / 50.0)
+            
+        energy = (2.5 * active_load + 0.5 * self.wear) * rul_factor
+        carbon = energy * 0.45
+
         return {
             "temperature": round(temperature, 3),
             "vibration": round(vibration, 3),
@@ -177,8 +187,8 @@ class Machine:
             "operating_time": round(self.operating_time, 3),
             "status": self.status.value,
             "utilization": round(self.utilization, 4),
-            "energy_kwh": round(2.5 * active_load + 0.5 * self.wear, 4),
-            "carbon_impact": round((2.5 * active_load + 0.5 * self.wear) * 0.45, 4),
+            "energy_kwh": round(energy, 4),
+            "carbon_impact": round(carbon, 4),
             "congestion_risk": round(self.calculate_congestion_risk(), 3),
             **self.dynamic_metrics
         }

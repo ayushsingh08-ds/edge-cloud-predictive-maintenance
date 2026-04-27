@@ -412,11 +412,11 @@ class _Dashboard3DScreenState extends State<Dashboard3DScreen> with TickerProvid
             const Spacer(),
             
             _buildStatItem("THROUGHPUT", metrics?.throughput ?? 0.0, decimals: 1, suffix: " /hr"),
-            _buildStatItem("LEAD TIME", metrics?.leadTime ?? 0.0, decimals: 1, suffix: " m"),
-            _buildStatItem("AVG UTIL.", (metrics?.avgUtilization ?? 0) * 100, suffix: "%"),
-            _buildStatItem("BOTTLENECKS", (metrics?.bottlenecks ?? 0).toDouble(), suffix: " jobs", color: Colors.redAccent),
-            _buildStatItem("WIP", (metrics?.wip ?? 0).toDouble(), suffix: "%"),
+            _buildStatItem("UTILIZATION", (metrics?.avgUtilization ?? 0) * 100, suffix: "%"),
             _buildStatItem("OEE", (metrics?.oee ?? 0) * 100, suffix: "%"),
+            _buildStatItem("CARBON", metrics?.totalCarbon ?? 0.0, decimals: 1, suffix: " kg", color: Colors.greenAccent),
+            _buildStatItem("EFFICIENCY", metrics?.energyEfficiencyPct ?? 0.0, decimals: 1, suffix: "%", color: Colors.cyanAccent),
+            _buildStatTextItem("QUBO SOLVER", metrics?.quboSolverState ?? "Heuristic", color: const Color(0xFF00E5FF)),
             
             const Spacer(),
             
@@ -448,6 +448,23 @@ class _Dashboard3DScreenState extends State<Dashboard3DScreen> with TickerProvid
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatTextItem(String label, String value, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            value.toUpperCase(),
+            style: TextStyle(color: color ?? Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+          ),
+        ],
       ),
     );
   }

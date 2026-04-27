@@ -65,26 +65,44 @@ class PositionalEncoding(nn.Module):
         return x
 
 
-class RULTransformerModel(nn.Module):
-    """Transformer Encoder based model for RUL prediction."""
-    def __init__(self, n_features: int, d_model: int = 128, nhead: int = 8, 
-                 num_layers: int = 4, dim_feedforward: int = 512, dropout: float = 0.1):
+class PatchTSTModel(nn.Module):
+    """
+    Patch Time Series Transformer (PatchTST) architecture for RUL prediction.
+    Features: Patching, Channel Independence, and Transformer Backbone.
+    """
+    def __init__(self, n_features: int, seq_len: int = 30, patch_size: int = 5, stride: int = 5,
+                 d_model: int = 128, nhead: int = 8, num_layers: int = 3, 
+                 dim_feedforward: int = 256, dropout: float = 0.1):
         super().__init__()
-        self.feature_projection = nn.Linear(n_features, d_model)
-        self.pos_encoder = PositionalEncoding(d_model)
+        self.patch_size = patch_size
+        self.stride = stride
+        self.n_features = n_features
+        self.seq_len = seq_len
         
+        # Calculate number of patches
+        self.n_patches = (seq_len - patch_size) // stride + 1
+        
+        # 1. Patch Embedding (Channel-Independent)
+        self.patch_projection = nn.Linear(patch_size, d_model)
+        
+        # 2. Positional Encoding
+        self.pos_encoder = PositionalEncoding(d_model, max_len=self.n_patches)
+        
+        # 3. Transformer Encoder
         encoder_layers = nn.TransformerEncoderLayer(
             d_model, nhead, dim_feedforward, dropout, batch_first=True
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers)
         
-        self.regressor = nn.Sequential(
-            nn.Linear(d_model, 64),
+        # 4. Prediction Head
+        # We flatten the patches and channels for the final regression
+        self.head = nn.Sequential(
+            nn.Linear(n_features * self.n_patches * d_model, 128),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(64, 32),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(64, 1)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -92,18 +110,32 @@ class RULTransformerModel(nn.Module):
         Args:
             x: Tensor, shape [batch_size, seq_len, n_features]
         """
-        # Map features to embedding dimension
-        x = self.feature_projection(x) # (B, T, d_model)
+        B, L, C = x.shape
+        
+        # 1. Patching & Channel Independence
+        # x: (B, L, C) -> (B, C, L)
+        x = x.transpose(1, 2)
+        
+        # Unfold into patches: (B, C, N_patches, patch_size)
+        x = x.unfold(dimension=-1, size=self.patch_size, step=self.stride)
+        
+        # Channel-Independent Reshape: (B*C, N_patches, patch_size)
+        x = x.reshape(B * C, self.n_patches, self.patch_size)
+        
+        # 2. Linear Projection of Patches
+        x = self.patch_projection(x) # (B*C, N_patches, d_model)
         x = self.pos_encoder(x)
         
-        # Transformer encoding
-        x = self.transformer_encoder(x) # (B, T, d_model)
+        # 3. Transformer Encoding
+        x = self.transformer_encoder(x) # (B*C, N_patches, d_model)
         
-        # Global pooling (mean over time steps)
-        x = torch.mean(x, dim=1) # (B, d_model)
+        # 4. Flatten and Predict
+        # Reshape back to include batch: (B, C, N_patches, d_model)
+        x = x.reshape(B, C, self.n_patches, -1)
+        # Flatten all except batch
+        x = x.reshape(B, -1)
         
-        # Final regression
-        return self.regressor(x).squeeze(-1)
+        return self.head(x).squeeze(-1)
 
 
 class EarlyStopping:
@@ -229,7 +261,7 @@ def main():
 
     # --- Build Model ---
     n_features = x_train_raw.shape[2]
-    model = RULTransformerModel(n_features=n_features, d_model=128, nhead=8, num_layers=3)
+    model = PatchTSTModel(n_features=n_features, seq_len=30, patch_size=5, stride=5, d_model=64, nhead=4, num_layers=3)
     trainer = TransformerTrainer(model, device)
     early_stopping = EarlyStopping(patience=5)
 

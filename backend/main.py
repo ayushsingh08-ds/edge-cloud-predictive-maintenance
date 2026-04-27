@@ -287,6 +287,7 @@ class SmartFactoryDigitalTwinSystem:
 		# Re-initialize all dependent services
 		self.mes = ManufacturingExecutionSystem(self.event_bus)
 		self.simulation = Simulation.from_layout_graph(graph, environment=self.environment, event_bus=self.event_bus)
+		self.simulation.engine.configure_green_evaluator(self.mes.evaluate_carbon_time_tradeoff)
 		self.maintenance = MaintenanceScheduler(self.event_bus)
 		self.prediction = PredictionService(self.event_bus)
 		

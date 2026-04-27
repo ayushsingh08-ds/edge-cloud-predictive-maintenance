@@ -20,10 +20,17 @@ env/
 .mypy_cache/
 
 # Backend artifacts
-backend/*.h5
-backend/*.keras
+backend/**/*.h5
+backend/**/*.keras
+backend/**/*.pt
+backend/**/*.joblib
 backend/data/*.db
+backend/data/*.db-journal
 backend/data/predictions/*.npy
+
+# Local/Temporary
+scratch/
+.gemini/
 
 # Flutter / Dart
 frontend/build/

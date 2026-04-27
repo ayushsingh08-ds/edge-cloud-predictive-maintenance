@@ -306,6 +306,8 @@ class GlobalMetrics {
   final double avgUtilization;
   final double totalEnergy;
   final double totalCarbon;
+  final double energyEfficiencyPct;
+  final String quboSolverState;
 
   GlobalMetrics({
     required this.environmentTime,
@@ -325,6 +327,8 @@ class GlobalMetrics {
     this.avgUtilization = 0.0,
     this.totalEnergy = 0.0,
     this.totalCarbon = 0.0,
+    this.energyEfficiencyPct = 0.0,
+    this.quboSolverState = 'Heuristic',
   });
 
   factory GlobalMetrics.fromJson(Map<String, dynamic> json) {
@@ -354,6 +358,8 @@ class GlobalMetrics {
       avgUtilization: (json['avg_util'] as num?)?.toDouble() ?? 0.0,
       totalEnergy: (json['total_energy_kwh'] as num?)?.toDouble() ?? 0.0,
       totalCarbon: (json['total_carbon_kg'] as num?)?.toDouble() ?? 0.0,
+      energyEfficiencyPct: (json['energy_efficiency_pct'] as num?)?.toDouble() ?? 0.0,
+      quboSolverState: json['qubo_solver_state'] ?? 'Heuristic',
     );
   }
 }

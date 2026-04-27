@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy as np
 from tensorflow import keras
+import torch
+import torch.nn as nn
 
 from events import Event, EventBus, EventType
 
@@ -22,7 +24,8 @@ class PredictionService:
 	health_threshold: float = 0.35
 	maintenance_threshold: float = 0.2
 	_machine_windows: dict[str, deque[dict[str, float]]] = field(default_factory=lambda: defaultdict(deque), init=False)
-	_model: keras.Model | Any | None = field(default=None, init=False)
+	_model: keras.Model | nn.Module | Any | None = field(default=None, init=False)
+	_is_torch_model: bool = field(default=False, init=False)
 	_explainer: Any | None = field(default=None, init=False)
 	_window_size: int = field(default=30, init=False)
 	_feature_order: list[str] = field(default_factory=list, init=False)
@@ -119,6 +122,26 @@ class PredictionService:
 					self._model = keras.models.load_model(path)
 					logging.info(f"Loaded Keras model from {path}")
 					break
+				elif path.suffix == ".pt":
+					# To load PatchTSTModel, we need the class definition. 
+					# For simplicity in the service, we assume the model is saved as a scripted/traced model or we provide the class.
+					# Since we just refactored train_transformer.py, we can import it or use torch.load if it's a full model.
+					try:
+						from training.train_transformer import PatchTSTModel
+						# We'll need n_features from metadata
+						n_features = len(self._feature_order)
+						self._model = PatchTSTModel(n_features=n_features)
+						self._model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+						self._model.eval()
+						self._is_torch_model = True
+						logging.info(f"Loaded Torch PatchTST model from {path}")
+						break
+					except Exception as te:
+						logging.warning(f"Failed to load PatchTST class, attempting direct torch.load: {te}")
+						self._model = torch.load(path, map_location=torch.device('cpu'))
+						self._model.eval()
+						self._is_torch_model = True
+						break
 			except Exception as e:
 				logging.error(f"Failed to load model from {path}: {e}")
 
@@ -200,10 +223,18 @@ class PredictionService:
 					input_data = np.asarray(input_data, dtype=np.float32)
 				
 			start_time = time.perf_counter()
-			# Use np.asarray to ensure we're dealing with a standard numeric type before passing to predict
-			# and ensure the output is also converted to a float.
-			pred_raw = self._model.predict(input_data, verbose=0)
-			prediction_scaled = float(np.asarray(pred_raw).flatten()[0])
+			
+			if self._is_torch_model:
+				with torch.no_grad():
+					input_tensor = torch.from_numpy(input_data).float()
+					pred_raw = self._model(input_tensor)
+					prediction_scaled = float(pred_raw.item())
+			else:
+				# Use np.asarray to ensure we're dealing with a standard numeric type before passing to predict
+				# and ensure the output is also converted to a float.
+				pred_raw = self._model.predict(input_data, verbose=0)
+				prediction_scaled = float(np.asarray(pred_raw).flatten()[0])
+			
 			latency_ms = (time.perf_counter() - start_time) * 1000
 			
 			# Compute SHAP importance if explainer is available

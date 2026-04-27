@@ -3,8 +3,69 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from threading import RLock
+import numpy as np
+import math
+import logging
 
 from events import Event, EventBus, EventType
+
+
+@dataclass(slots=True)
+class SQASolver:
+    """
+    Simulated Quantum Annealing (SQA) solver for QUBO problems.
+    Uses Trotter slices to simulate quantum tunneling effects.
+    """
+    n_trotter: int = 8
+    n_sweeps: int = 100
+    
+    def solve(self, Q: np.ndarray) -> np.ndarray:
+        """
+        Samples the QUBO Q-matrix using SQA.
+        Q is an (N, N) matrix representing the Hamiltonian.
+        """
+        N = Q.shape[0]
+        # Initial state: random spins for each Trotter slice
+        # Using {0, 1} formulation for QUBO
+        state = np.random.randint(0, 2, size=(self.n_trotter, N)).astype(np.float32)
+        
+        # Annealing schedules
+        beta = 1.0  # Inverse classical temperature
+        gamma_start = 2.0
+        gamma_end = 0.01
+        
+        for sweep in range(self.n_sweeps):
+            # Linearly decrease transverse field (gamma)
+            gamma = gamma_start + (gamma_end - gamma_start) * (sweep / self.n_sweeps)
+            # Quantum coupling strength
+            j_perp = -0.5 * beta * math.log(math.tanh(gamma / self.n_trotter))
+            
+            for m in range(self.n_trotter):
+                for i in range(N):
+                    # Classical energy contribution
+                    # dE = (1 - 2*state[m,i]) * (Q[i,i] + sum(Q[i,j]*state[m,j] for j!=i))
+                    # Simplified for QUBO where x_i is {0, 1}
+                    current_val = state[m, i]
+                    other_val = 1 - current_val
+                    
+                    # Energy change if we flip state[m,i]
+                    # Hamiltonian: H = x^T Q x
+                    # We only care about the diff
+                    e_fixed = Q[i, i] + np.dot(Q[i, :], state[m, :]) + np.dot(state[m, :], Q[:, i]) - 2 * Q[i, i] * current_val
+                    delta_e_classical = (other_val - current_val) * e_fixed
+                    
+                    # Quantum energy contribution from adjacent Trotter slices
+                    prev_m = (m - 1) % self.n_trotter
+                    next_m = (m + 1) % self.n_trotter
+                    delta_e_quantum = -j_perp * (other_val - current_val) * (state[prev_m, i] + state[next_m, i])
+                    
+                    # Metropolis criterion
+                    if delta_e_classical + delta_e_quantum < 0 or np.random.rand() < math.exp(-(delta_e_classical + delta_e_quantum) * beta):
+                        state[m, i] = other_val
+                        
+        # Return the slice with the lowest energy
+        energies = [np.dot(state[m], np.dot(Q, state[m])) for m in range(self.n_trotter)]
+        return state[np.argmin(energies)]
 
 
 @dataclass(slots=True)
@@ -17,6 +78,7 @@ class RoutingEngine:
     _machine_provider: Callable[[str], dict[str, Any]] | None = None
     _queue_provider: Callable[[str], int] | None = None
     _node_type_provider: Callable[[str], str] | None = None
+    _green_score_provider: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None
     _health_overrides: dict[str, float] = field(default_factory=dict)
     _pressure_overrides: dict[str, float] = field(default_factory=dict)
     _lock: RLock = field(default_factory=RLock, init=False)
@@ -70,13 +132,20 @@ class RoutingEngine:
         machine_provider: Callable[[str], dict[str, Any]],
         queue_provider: Callable[[str], int],
         node_type_provider: Callable[[str], str],
+        green_score_provider: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
     ) -> None:
         self._machine_provider = machine_provider
         self._queue_provider = queue_provider
         self._node_type_provider = node_type_provider
+        self._green_score_provider = green_score_provider
 
     def handle_routing_request(self, event: Event) -> None:
         request_id = str(event.payload.get("request_id", ""))
+        # For QUBO solver state tracking
+        solver_state = "Heuristic"
+        if self.routing_policy == "qubo_sqa":
+            solver_state = "Quantum Active"
+
         selected_to = self._select_target(event)
         if request_id and selected_to:
             self._routing_results[request_id] = selected_to
@@ -91,6 +160,7 @@ class RoutingEngine:
                 "divider_id": event.payload.get("divider_id"),
                 "to": selected_to,
                 "policy": self.routing_policy,
+                "solver_state": solver_state,
             },
         )
         self.decisions.append(decision)
@@ -104,16 +174,18 @@ class RoutingEngine:
             "balanced": "round_robin",
         }
         normalized = alias_map.get(normalized, normalized)
-        if normalized not in {"weighted_cost", "least_loaded", "random", "lowest_transport_time", "round_robin", "pdm_rul"}:
+        if normalized not in {"weighted_cost", "least_loaded", "random", "lowest_transport_time", "round_robin", "pdm_rul", "qubo_sqa"}:
             raise ValueError(
-                "unsupported routing policy. use one of: weighted_cost, least_loaded, random, lowest_transport_time, round_robin, pdm_rul"
+                "unsupported routing policy. use one of: weighted_cost, least_loaded, random, lowest_transport_time, round_robin, pdm_rul, qubo_sqa"
             )
         self.routing_policy = normalized
+        if normalized == "qubo_sqa":
+            logging.info("Routing Engine: QUBO/SQA Optimization Policy Activated.")
 
     def policy_info(self) -> dict[str, Any]:
         return {
             "active_policy": self.routing_policy,
-            "supported_policies": ["weighted_cost", "least_loaded", "random", "lowest_transport_time", "round_robin", "pdm_rul"],
+            "supported_policies": ["weighted_cost", "least_loaded", "random", "lowest_transport_time", "round_robin", "pdm_rul", "qubo_sqa"],
         }
 
     def pending_count(self) -> int:
@@ -168,14 +240,72 @@ class RoutingEngine:
         if self.routing_policy == "lowest_transport_time":
             return min(eligible_machines, key=lambda item: float(item.get("transport_time", 0.0)))
 
-        if self.routing_policy == "round_robin":
-            divider_id = str(event.payload.get("divider_id", "default"))
-            idx = self._round_robin_index.get(divider_id, 0)
-            selected = eligible_machines[idx % len(eligible_machines)]
-            self._round_robin_index[divider_id] = idx + 1
-            return selected
+        if self.routing_policy == "qubo_sqa":
+            return self._qubo_sqa_select(event, eligible_machines)
 
         return min(eligible_machines, key=lambda item: self._machine_score(event, item))
+
+    def _qubo_sqa_select(self, event: Event, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Uses QUBO + SQA to select the optimal machine.
+        Constructs a Hamiltonian where constraints are exponentially penalized.
+        """
+        N = len(candidates)
+        if N == 1:
+            return candidates[0]
+            
+        # 1. Build the Q matrix (Hamiltonian)
+        # H = sum(c_i * x_i) + lambda * (sum(x_i) - 1)^2
+        # Expanding the constraint: lambda * (sum(x_i^2) + sum(x_i*x_j) - 2*sum(x_i) + 1)
+        # Since x_i is binary, x_i^2 = x_i.
+        # H = sum((c_i - lambda) * x_i) + lambda * sum(x_i * x_j) + constant
+        
+        Q = np.zeros((N, N))
+        lam = 50.0 # Penalty strength for the "Exactly One" constraint
+        
+        # 1.1 Get Green Scores from MES (Epsilon-Constraint)
+        scored_candidates = candidates
+        if self._green_score_provider:
+            scored_candidates = self._green_score_provider(candidates)
+            
+        for i in range(N):
+            machine_id = candidates[i]["to_node"]
+            state = self._machine_state(machine_id)
+            queue = float(self._queue_length(machine_id))
+            transport = float(candidates[i].get("transport_time", 0.0))
+            
+            # --- Exponential Penalization Framework ---
+            # 1. Health/RUL Penalty
+            rul = float(state.get("predicted_rul", 100.0))
+            health_penalty = 20.0 * math.exp(-0.1 * (rul - 30.0)) if rul < 50 else 0.0
+            
+            # 2. Capacity penalty (exponential)
+            capacity_penalty = 5.0 * math.exp(0.5 * (queue - 10.0)) if queue > 5 else 0.0
+            
+            # 3. Sustainability Penalty (from MES Green Scores)
+            green_score = scored_candidates[i].get("green_score", 1.0)
+            # Penalty increases as green score decreases
+            sustainability_penalty = 15.0 * (1.0 - green_score)
+            
+            # Linear cost coefficients (Diagonal terms)
+            Q[i, i] = (queue * 1.0) + (transport * 0.5) + health_penalty + capacity_penalty + sustainability_penalty - (2 * lam)
+            
+            for j in range(i + 1, N):
+                # Quadratic interaction terms (Off-diagonal)
+                Q[i, j] = Q[j, i] = lam
+        
+        # 2. Solve using Simulated Quantum Annealing
+        solver = SQASolver(n_trotter=8, n_sweeps=50)
+        solution = solver.solve(Q)
+        
+        # 3. Interpret solution
+        # If solver fails to find exactly one (e.g. all 0), fallback to heuristic
+        if np.sum(solution) != 1:
+            logging.warning(f"SQA Solver failed to converge to single selection (sum={np.sum(solution)}). Falling back to heuristic.")
+            return min(candidates, key=lambda item: self._machine_score(event, item))
+            
+        selected_idx = np.argmax(solution)
+        return candidates[selected_idx]
 
     def _machine_eligible(self, event: Event, item: dict[str, Any]) -> bool:
         if self._branch_pressure(item["to_node"]) >= 0.5:

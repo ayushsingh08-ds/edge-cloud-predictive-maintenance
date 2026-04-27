@@ -51,6 +51,7 @@ class FactorySimulationEngine:
     _buffer_pressure_high: dict[str, bool] = field(init=False, default_factory=dict)
     _lock: RLock = field(init=False, default_factory=RLock)
     _maintenance_scheduler_provider: Callable[[str], float | None] | None = field(init=False, default=None)
+    _green_score_evaluator: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = field(init=False, default=None)
     _started: bool = field(init=False, default=False)
     _sim_start_time: float = field(init=False, default=0.0)
     _jobs_completed_count: int = field(init=False, default=0)
@@ -127,11 +128,21 @@ class FactorySimulationEngine:
             machine_provider=self._machine_snapshot,
             queue_provider=self._queue_length,
             node_type_provider=self._node_type,
+            green_score_provider=self._green_score_evaluator,
         )
         self.event_bus.subscribe(EventType.MAINTENANCE_TRIGGER, self._handle_maintenance_trigger)
 
     def configure_maintenance_scheduler(self, provider: Callable[[str], float | None]):
         self._maintenance_scheduler_provider = provider
+
+    def configure_green_evaluator(self, evaluator: Callable[[list[dict[str, Any]]], list[dict[str, Any]]]):
+        self._green_score_evaluator = evaluator
+        self._routing_engine.configure_context(
+            machine_provider=self._machine_snapshot,
+            queue_provider=self._queue_length,
+            node_type_provider=self._node_type,
+            green_score_provider=self._green_score_evaluator,
+        )
 
     @classmethod
     def from_layout_json(

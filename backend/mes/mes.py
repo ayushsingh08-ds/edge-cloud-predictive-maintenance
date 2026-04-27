@@ -40,6 +40,7 @@ class MachineMetrics:
     cycle_time_history: list[float] = field(default_factory=list)
     total_production: int = 0
     total_energy_kwh: float = 0.0
+    productive_energy_kwh: float = 0.0
     total_carbon_kg: float = 0.0
     active_job_start: float | None = None
 
@@ -80,7 +81,10 @@ class ManufacturingExecutionSystem:
         self._advance_time(metrics, event.timestamp)
 
         payload = event.payload.get("metrics", {})
-        metrics.total_energy_kwh += payload.get("energy_kwh", 0.0)
+        energy_sample = payload.get("energy_kwh", 0.0)
+        metrics.total_energy_kwh += energy_sample
+        if metrics.state == "Busy":
+            metrics.productive_energy_kwh += energy_sample
         metrics.total_carbon_kg += payload.get("carbon_impact", 0.0)
         
         sensor = dict(event.payload.get("metrics", {}))
@@ -311,3 +315,43 @@ class ManufacturingExecutionSystem:
                 },
             )
         )
+
+    def evaluate_carbon_time_tradeoff(self, candidates: list[dict[str, Any]], epsilon: float = 0.8) -> list[dict[str, Any]]:
+        """
+        Implements the epsilon-constraint method for multi-objective optimization.
+        Primary Objective: Minimize Time (represented by queue/processing)
+        Constraint: Carbon Emissions <= epsilon
+        
+        candidates: List of machine candidates with 'to_node' and 'transport_time'
+        epsilon: The carbon emission constraint (0.0 to 1.0 normalized)
+        """
+        results = []
+        for cand in candidates:
+            m_id = cand["to_node"]
+            metrics = self.machine_metrics.get(m_id)
+            if not metrics:
+                results.append({**cand, "green_score": 0.5, "feasible": True})
+                continue
+            
+            # Carbon Intensity: Carbon/Energy ratio or relative to historical peak
+            # For simplicity, we use a predicted carbon impact factor based on RUL
+            # Machines with low RUL have higher carbon intensity
+            rul = metrics.rul_hours if metrics.rul_hours is not None else 100.0
+            carbon_intensity = 1.0 - _clamp(rul / 100.0)
+            
+            is_feasible = carbon_intensity <= epsilon
+            
+            # Scoring: Combination of feasibility and intensity
+            # If feasible, score is better. If not, it's penalized.
+            green_score = 1.0 - carbon_intensity
+            if not is_feasible:
+                green_score *= 0.2 # Heavy penalty for exceeding epsilon
+                
+            results.append({
+                **cand,
+                "carbon_intensity": round(carbon_intensity, 4),
+                "green_score": round(green_score, 4),
+                "feasible": is_feasible
+            })
+            
+        return results

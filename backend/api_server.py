@@ -521,7 +521,10 @@ class DigitalTwinRuntime:
 			][:3]
 
 			total_energy = sum(m.total_energy_kwh for m in machines)
+			productive_energy = sum(m.productive_energy_kwh for m in machines)
 			total_carbon = sum(m.total_carbon_kg for m in machines)
+			
+			energy_efficiency = (productive_energy / total_energy) if total_energy > 0 else 0.0
 
 			return {
 				"environment_time": env_time,
@@ -542,6 +545,8 @@ class DigitalTwinRuntime:
 				"avg_util_pct": round(avg_util * 100.0, 2),
 				"total_energy_kwh": round(total_energy, 2),
 				"total_carbon_kg": round(total_carbon, 2),
+				"energy_efficiency_pct": round(energy_efficiency * 100.0, 2),
+				"qubo_solver_state": "Quantum Active" if (self.system.simulation and self.system.simulation.engine._routing_engine.routing_policy == "qubo_sqa") else "Heuristic",
 				"completed_jobs": int(completed_jobs),
 				"throughput_metrics": engine.get_throughput_metrics() if engine is not None else {},
 				"speed_multiplier": self.speed_multiplier,

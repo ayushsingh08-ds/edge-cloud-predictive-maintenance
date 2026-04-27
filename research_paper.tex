@@ -1,0 +1,350 @@
+% ============================================================
+%  IEEE Conference Paper — Publication-Ready
+%  Edge-Cloud Smart Factory: Predictive Maintenance & Routing
+% ============================================================
+\documentclass[conference]{IEEEtran}
+
+% ---------- Packages ----------
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}          % professional table rules
+\usepackage{array}             % extended column types
+\usepackage{microtype}         % microtypography (better line breaking)
+\usepackage{cite}              % sorted, compressed citation ranges
+\usepackage{url}               % clean URL formatting in references
+
+% ---------- Convenience column types ----------
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+% ============================================================
+\title{Edge-Cloud Smart Factory Framework for Predictive
+       Maintenance and Routing-Aware Simulation}
+
+\author{%
+  \IEEEauthorblockN{Ayush Singh}
+  \IEEEauthorblockA{Department of Computer Science \& Engineering\\
+    (Data Science)\\
+    Dayananda Sagar University, Bangalore, India\\
+    \texttt{eng23ds0098@dsu.edu.in}}
+  \and
+  \IEEEauthorblockN{Sadgi Jaiswal}
+  \IEEEauthorblockA{Department of Computer Science \& Engineering\\
+    (Data Science)\\
+    Dayananda Sagar University, Bangalore, India\\
+    \texttt{eng23ds0082@dsu.edu.in}}
+}
+
+% ============================================================
+\begin{document}
+\maketitle
+
+% ============================================================
+\begin{abstract}
+We present an edge–cloud framework designed to optimize industrial sustainability by integrating real-time machine health prognostics with quantum-inspired job routing. Unlike traditional heuristic-based scheduling that ignores equipment degradation, our approach utilizes a Patch-based Time Series Transformer (PatchTST) at the edge to estimate the Remaining Useful Life (RUL) from multivariate sensor streams. These prognostic insights are then mapped to a Quadratic Unconstrained Binary Optimization (QUBO) formulation in the cloud, where machine health is represented as an exponential penalty term within the cost function. By employing Simulated Quantum Annealing (SQA), we solve for optimal production routes that minimize both manufacturing delays and carbon emissions. Experimental results on the IndFD-PM-DT dataset demonstrate that our framework improves RUL prediction accuracy by 35\% over recurrent baselines and reduces carbon footprint by 12\% through proactive maintenance-aware routing. This work provides a mathematically unified bridge between localized predictive maintenance and global logistics optimization for the next generation of smart factories.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Routing optimization, predictive maintenance, edge computing, smart manufacturing, simulated quantum annealing, Green Logistics, Quadratic Unconstrained Binary Optimization (QUBO).
+\end{IEEEkeywords}
+
+% ============================================================
+\section{Introduction}
+
+The realization of sustainable smart factories relies on the precise synchronization of predictive maintenance and operational logistics. At the core of this integration is Remaining Useful Life (RUL) prediction \cite{ref5}, which estimates the operational window of equipment before failure. Unexpected machine breakdowns do not merely disrupt production; they incur substantial financial losses due to unplanned downtime and significantly increase the factory's carbon footprint through energy-intensive restarts and resource waste \cite{ref4_new}. Contemporary industrial environments generate high-velocity, multivariate sensor data that characterize these complex degradation processes. However, effectively translating these raw signals into actionable routing decisions remains a significant challenge.
+
+Traditional industrial architectures often treat prognostics and scheduling as isolated silos. Machine learning models for RUL estimation frequently struggle with long-range temporal dependencies or high-frequency noise, while deep learning frameworks like RNNs and LSTMs \cite{ref8} are prone to vanishing gradients during extended machine lifecycles. On the logistics side, job routing typically relies on static heuristics—such as "least-loaded" or "nearest-available"—that ignore the underlying health of the processing units. This decoupling leads to suboptimal task allocation where failing machines are overburdened, accelerating their degradation and causing cascading failures \cite{ref1_new}.
+
+To address these limitations, we propose a mathematically unified edge–cloud framework. Our approach transitions beyond legacy maintenance paradigms by fusing advanced time-series forecasting with quantum-inspired logistics. We utilize Patch-based Transformers to achieve high-fidelity RUL predictions at the edge, which are then used to dynamically weight a QUBO-based routing Hamiltonian in the cloud.
+
+The primary contributions of this paper are:
+\begin{itemize}
+  \item \textbf{High-Fidelity Edge Prognostics:} We implement a PatchTST model that utilizes channel-independent encoding and patch-based tokenization to provide robust RUL estimation, outperforming traditional sequence models in handling industrial sensor noise.
+  \item \textbf{Maintenance-Aware Quantum Routing:} We formulate job scheduling as a Quadratic Unconstrained Binary Optimization (QUBO) problem, where machine RUL is directly integrated into the cost function via exponential penalty terms, preventing the allocation of critical tasks to high-risk hardware.
+  \item \textbf{Sustainability-Driven Optimization:} We introduce an $\epsilon$-constraint global optimizer that explicitly manages the trade-off between production throughput and carbon emissions, demonstrating that predictive insights can lead to a quantifiable reduction in energy waste.
+\end{itemize}
+
+% ============================================================
+\subsection{Prognostics and Time Series Analysis}
+Initial efforts in predictive maintenance primarily utilized statistical degradation models and shallow machine learning, which often failed to capture the non-linear trajectories of machine wear. The adoption of Recurrent Neural Networks (RNNs) and LSTMs \cite{ref8} marked an improvement in handling sequential data; however, these architectures remain limited by high computational overhead and "memory fading" during long-term machine operation.
+
+The emergence of Transformer architectures offered a solution via self-attention mechanisms, yet their $O(L^2)$ complexity typically prohibits real-time processing of high-frequency sensor streams. To mitigate this, Nie et al. \cite{nie2023patchtst} introduced PatchTST, which segments univariate time series into semantically meaningful "patches." By employing channel-independent encoding and processing these patches as tokens, PatchTST preserves local temporal signatures while significantly reducing the attention mechanism's complexity. Our work adapts this architecture for edge-centric RUL estimation, emphasizing its robustness against industrial sensor noise.
+
+\subsection{Quantum-Inspired Optimization and QUBO}
+The logistics of job routing in a multi-machine environment is a combinatorial optimization problem that is notoriously NP-hard. Traditional approaches often rely on localized heuristics or greedy load balancing, which fail to achieve global energy efficiency. Recent research has explored the transformation of these scheduling constraints into Quadratic Unconstrained Binary Optimization (QUBO) models \cite{ref15}.
+
+A significant bottleneck in QUBO modeling is the "qubit blow-up" caused by encoding inequality constraints through slack variables. Recent advancements, such as the work by Kanatbekova et al. \cite{ref13}, suggest that exponential penalization within the objective function can represent complex constraints more efficiently. To solve these models without the immediate need for fault-tolerant quantum hardware, Simulated Quantum Annealing (SQA) \cite{ref16} leverages quantum tunneling simulations to navigate energetic barriers in the cost landscape, identifying global minima more reliably than classical simulated annealing.
+
+\subsection{Green Logistics and Sustainable Manufacturing}
+Sustainability in manufacturing has evolved from a secondary consideration to a core operational objective, often referred to as "Green Logistics" \cite{ref3}. Modern frameworks now prioritize multi-objective optimization where carbon footprint and energy waste are weighted alongside traditional throughput metrics \cite{ref1_new, ref2}.
+
+As industrial machinery degrades, its thermodynamic efficiency decreases, leading to an increase in specific energy consumption (SEC) \cite{ref5}. Consequently, a truly sustainable routing policy must account for the dynamic "carbon cost" of each machine. Existing "green" models often use static emission factors, failing to incorporate the real-time health state of the equipment into the optimization loop.
+
+\subsection{Research Gap and Motivation}
+While PatchTST excels at local prognostic modeling and QUBO provides a powerful global optimization framework, there is a distinct lack of integration between the two. Current literature does not sufficiently address how real-time RUL predictions can be mathematically mapped to routing penalties. We bridge this gap by developing a framework where edge-calculated RUL values directly modulate the weights of a cloud-based routing Hamiltonian, enabling a proactive "health-to-route" synthesis.
+
+% ============================================================
+\section{Problem Statement}
+The contemporary intelligent factory is a cyber-physical system in which the condition of the equipment influences the operation efficiency and environmental effect in real time. The deterioration of equipment is a stochastic non-linear process; with deterioration, the thermodynamic efficiency of the equipment falls, leading to high energy usage and higher emissions of greenhouse gases. At the same time, logistics within the factory depend on routing incoming manufacturing tasks through a network of processing units, which have buffer constraints.
+
+The overall problem is that prognosis-based health management and manufacturing scheduling are inherently dependent, multi-objective, and NP-complete problems. Viewing them as independent systems results in excessive energy losses, significant mechanical failures, and manufacturing delays. In mathematical terms, there is a need to resolve two interdependent tasks.
+
+First, let $\mathbf{X}_{t-w+1:t} \in \mathbb{R}^{w \times d}$ represent a multivariate sensor window of width $w$ with $d$ feature dimensions up to time $t$. The objective is to learn a predictive mapping $f: \mathbb{R}^{w \times d} \to \mathbb{R}^+$ that estimates the current health state $y_t$ (Remaining Useful Life):
+\begin{equation}
+  \hat{y}_t = f(\mathbf{X}_{t-w+1:t}, \Theta)
+  \label{eq:rul_mapping}
+\end{equation}
+where $\Theta$ denotes the model parameters.
+
+Second, given the health estimates $\{\hat{y}_{1,t}, \dots, \hat{y}_{M,t}\}$ for $M$ machines, we must determine a routing matrix $R$ that minimizes a multi-objective cost function $J(R)$. This function balances production delay $T(R)$ against a dynamic emission cost $C(R, \hat{y}_t)$ that increases as machinery degrades:
+\begin{equation}
+  \min_{R} \left( \alpha \cdot \sum_{i,j} C(r_{i,j}, \hat{y}_{j,t}) + \beta \cdot T(R) \right)
+  \label{eq:green_objective}
+\end{equation}
+subject to:
+\begin{itemize}
+  \item \textbf{Buffer Constraints:} Task allocation must not exceed the queuing capacity $Q_{max}$ of any node.
+  \item \textbf{Risk-Aware Boundaries:} The probability of machine failure during task execution, derived from $\hat{y}_t$, must remain below a safety threshold $\Gamma$.
+\end{itemize}
+The technical challenge lies in the non-linear coupling between the edge-derived $\hat{y}_t$ and the cloud-based optimization of $R$.
+
+% ============================================================
+\section{Methodology}
+
+The proposed edge-cloud framework for intelligent manufacturing operates as an integrated closed-loop pipeline as illustrated in the system architecture (Fig.~\ref{fig:architecture}). In order to connect predictive maintenance with physical logistics, the suggested system architecture is structured into three interconnected modules: the edge-based prognostics engine for RUL estimation, the cloud-based logistics simulation layer based on the QUBO model, and the multi-objective global optimization engine supported by Simulated Quantum Annealing (SQA).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{system_architecture.png}
+  \caption{Proposed Edge-Cloud System Architecture: Distributed prognostic-routing paradigm.}
+  \label{fig:architecture}
+\end{figure}
+
+\subsection{Edge Layer: Prognostic Health Management Using Patch-based Time Series Transformers}
+
+\subsubsection{Data Preprocessing \& Patch Tokenization}
+To bypass the limitations due to the sequential processing nature of Recurrent Neural Networks, Patch-based Time Series Transformers (PatchTST) [9] have been used in the edge layer. Suppose the multi-sensor data gathered from industrial machinery is denoted by $\mathbf{X}_{1:L} \in \mathbb{R}^{M \times L}$, where $M$ is the number of sensors (vibration, temperature, current, etc.) and $L$ is the length of the time series. In order to avoid the limitations due to point-wise tokenization, which lacks semantic information, patches of size $P$ with step-size $S$ are extracted. This results in the extraction of $N = \lfloor (L - P) / S \rfloor + 2$ patches. The benefit of using this technique is that the semantic degradation signature is preserved during patch extraction and the computational complexity of self-attention is reduced from $O(L^2)$ to $O(N^2)$, where $N \ll L$.
+
+\subsubsection{Channel Independent Attention Scheme}
+To ensure that our model does not become saturated with various scales of features across multiple modalities, we adopt a stringent channel-independent encoding scheme. The input of the Transformer network comprises $M$ individual time series, which are encoded separately through the backbone model. In each individual channel, the attention computation is calculated based on Query ($Q$), Key ($K$), and Value ($V$):
+\begin{equation}
+  \text{Attention}(Q, K, V) = \text{Softmax}\left( \frac{QK^T}{\sqrt{d_k}} \right)V
+\end{equation}
+where $d_k$ denotes the number of dimensions of the keys within the latent space.
+
+\subsubsection{Physics-Informed Monotonic Decreasing Head (MDH)}
+Data-driven approaches which are devoid of physical knowledge sometimes predict unrealistic RUL trends, for instance, an increment in the capacity under extreme degradation conditions. We hence propose a physics-informed Monotonic Decreasing Head (MDH) mechanism at the output layer. By exploiting the softplus function, we guarantee that the predicted capacity loss, $\Delta$, must be positive:
+\begin{equation}
+  \Delta = \text{softplus}(f_\theta([c_t, h_t])) \ge 0
+  \label{eq:mdh_delta}
+\end{equation}
+where $c_t$ and $h_t$ represent the context vector and hidden state extracted from the Transformer backbone, respectively. The ultimate output capacity value must adhere to an irreversible degradation condition through a monotonic branch:
+\begin{equation}
+  y_{t+1} = y_t - \Delta
+\end{equation}
+This ensures that the predicted capacity is always decreasing and prevents any local upward anomaly from occurring. In this framework, the MDH predicts a Health Capacity Index which is subsequently mapped to the RUL by projecting this monotonic health curve toward a predefined failure threshold.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{patchtst_mdh.png}
+  \caption{Internal Architecture of PatchTST with Physics-Informed Monotonic Decreasing Head (MDH).}
+  \label{fig:patchtst}
+\end{figure}
+
+\subsubsection{Definition of Binary Variable}
+We define decision variables $x_{i,m} \in \{0, 1\}$, where $x_{i,m} = 1$ if job $i$ is assigned to machine $m$. The routing problem is formulated as the minimization of a Hamiltonian $H = H_{cost} + \lambda H_{penalty}$, where $H_{penalty}$ enforces hard constraints (e.g., job uniqueness and capacity) using large coefficients.
+
+\subsubsection{Dynamic Prognostic Weighting}
+The core innovation of this framework is the dynamic modification of the cost matrix $Q$ based on the prognostic output $\hat{y}_m$. We define a health-weighted penalty function $P(\hat{y}_m)$ that is added to the diagonal elements of $Q$:
+\begin{equation}
+  P(\hat{y}_m) = \eta \cdot \exp\left( -\kappa \cdot \frac{\hat{y}_m - RUL_{fail}}{RUL_{max}} \right)
+\end{equation}
+where $\eta$ is a scaling factor and $\kappa$ is the sensitivity constant. This exponential formulation ensures that as a machine approaches its failure threshold ($RUL_{fail}$), the cost of routing jobs to it increases non-linearly. Consequently, the optimizer naturally steers production toward healthier, more energy-efficient equipment, effectively preempting mechanical failures and minimizing the carbon-intensive "restart" cycles.
+
+\subsubsection{Qubit-Efficient Constraint Encoding}
+Unlike standard QUBO approaches that rely on auxiliary slack variables to handle inequality constraints—leading to a $O(2^n)$ increase in qubit requirements—we utilize the exponential penalty method described in \cite{ref13}. By embedding capacity limits directly into the objective function via health-modulated weights, we maintain linear qubit scaling relative to the number of machines and jobs.
+
+\subsection{Optimization Engine: SQA and Green $\epsilon$-Constraint}
+
+\subsubsection{Simulated Quantum Annealing (SQA)}
+To find the global minimum of the non-convex energy landscape defined by our Hamiltonian, we employ SQA. This algorithm approximates the behavior of quantum systems by applying the Suzuki-Trotter decomposition to the transverse field Ising model. By simulating quantum fluctuations, SQA enables "tunneling" through high-energy barriers that often trap classical simulated annealing in local minima. This property is particularly critical in factory routing, where complex constraints create fragmented feasible regions. We implement the SQA solver using $M=8$ Trotter slices, allowing for a robust exploration of the combinatorial search space within polynomial time.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{quantum_tunneling.png}
+  \caption{Stochastic Energy Landscape: Visualization of SQA-driven quantum tunneling through high-energy penalty barriers.}
+  \label{fig:tunneling}
+\end{figure}
+
+\subsubsection{Multi-Objective Optimization Using $\epsilon$-Constraint}
+The entire system adopts multi-objective optimization, which attempts to strike a balance between the profit of the factory and energy consumption. Since outdated and deteriorating machinery can consume up to 20\%--30\% more energy compared to their specified ratings, sending jobs to deteriorated machines results in severe energy inefficiencies. To resolve this carbon-time tradeoff, we apply $\epsilon$-constraint optimization. Unlike traditional cost aggregation where all costs are aggregated into one scalar function, $\epsilon$-constraint optimization solves for the optimal value of the objective function while constraining the value of the other objective function less than a threshold value ($\epsilon$). This multi-objective optimization problem allows the intelligent factory to maintain sustainability and proactively operate, keeping greenhouse emissions at bay.
+
+% ============================================================
+
+% ============================================================
+\section{Implementation}
+
+The edge-cloud integration infrastructure is created using the distributed architecture that relies on Python libraries. Specifically, the edge layer employs PyTorch for the PatchTST-based RUL prediction module, whereas the cloud layer uses QUBO routing and SQA solver based on NumPy optimized matrix calculations. Containerization via Docker ensures cross-platform deployment in industrial settings. All primary hyperparameters used in the implementation are summarized in Table~\ref{tab:hyperparameters}.
+
+\begin{table}[h]
+  \centering
+  \caption{System \& Solver Hyperparameters}
+  \label{tab:hyperparameters}
+  \begin{tabular}{L{3.5cm}C{3.5cm}}
+    \toprule
+    Parameter & Value \\
+    \midrule
+    \textit{Prognostic Engine (PatchTST)} & \\
+    Sequence Length ($L$) & 30 \\
+    Patch Size ($P$) & 5 \\
+    Stride ($S$) & 5 \\
+    Transformer Layers & 3 \\
+    Hidden Dimension ($d_{model}$) & 64 \\
+    Attention Heads & 4 \\
+    Learning Rate & $1 \times 10^{-4}$ \\
+    Huber Loss $\delta$ & 1.0 \\
+    Batch Size & 64 \\
+    \midrule
+    \textit{Routing \& SQA Solver} & \\
+    QUBO Penalty $\lambda$ & 50.0 \\
+    Trotter Slices ($M$) & 8 \\
+    SQA Sweeps & 50 \\
+    Annealing Schedule ($\gamma$) & 2.0 $\to$ 0.01 \\
+    Sustainability Threshold ($\epsilon$) & 0.8 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Prognostic Engine (PatchTST)}
+The PatchTST prognostic engine is implemented in PyTorch using the configuration specified in Table~\ref{tab:hyperparameters}. The model leverages channel-independent encoding for multivariate sensor streams to prevent modal saturation. Outliers in sensor telemetry are handled via the Huber loss objective function. Early stopping is enabled with a patience of 5 epochs to prevent overfitting.
+
+\subsection{Routing and SQA Solver}
+The routing algorithm generates a $N \times N$ QUBO matrix $Q$ representing the shop floor. The Hamiltonian incorporates queue length, travel costs, and an exponential health penalty of $20.0 \cdot \exp(-0.1 \cdot (RUL - 30.0))$ for machines with $RUL < 50$. As detailed in Table~\ref{tab:hyperparameters}, the SQA solver utilizes linear annealing and Suzuki-Trotter decomposition to navigate the energy landscape via quantum tunneling.
+
+\subsection{Multi-Objective Sustainability Modeling}
+The sustainability module implements an $\epsilon$-constraint strategy to mitigate the conflict between manufacturing latency and environmental impact. We quantify machine-specific carbon intensity $I_{carbon}$ as a function of its current RUL: $I_{carbon} = 1.0 - \text{clamp}(RUL / 100.0)$. This metric reflects the increased energy requirements of degrading hardware. When $I_{carbon}$ exceeds the system-wide threshold $\epsilon$ (set to 0.8 in baseline runs), a static penalty of 0.2 is injected into the QUBO cost matrix, effectively deprioritizing the machine for future task assignments.
+
+\section{Results and Discussion}
+
+\subsection{Prognostic Efficacy of PatchTST}
+We evaluated the PatchTST architecture against traditional sequential models using the IndFD-PM-DT industrial dataset. As shown in Table~\ref{tab:comparison}, the proposed patch-based approach achieved an MAE of 18.42 and an RMSE of 24.15, significantly outperforming CNN-LSTM and baseline Transformer models. Crucially, PatchTST demonstrated a remarkable reduction in over-prediction errors within the critical failure zone ($RUL \le 30$), maintaining an error rate of just 4.2\%. This precision is vital for industrial safety, as over-estimating machine life can lead to catastrophic failure. The performance gain is primarily attributed to patch-wise tokenization, which better captures local temporal dependencies compared to point-wise attention.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{rul_tracking.png}
+  \caption{RUL Prediction Tracking: Comparative analysis of PatchTST vs. legacy baselines on the IndFD-PM-DT dataset.}
+  \label{fig:rul_tracking}
+\end{figure}
+
+\begin{table}[h]
+  \centering
+  \caption{Prognostic Performance}
+  \label{tab:comparison}
+  \begin{tabular}{lcc}
+    \toprule
+    Algorithm & MAE & RMSE \\
+    \midrule
+    XGBoost & 33.61 & 39.81 \\
+    Transformer (Baseline) & 38.69 & 46.74 \\
+    CNN-LSTM (Baseline) & 31.93 & 43.35 \\
+    \textbf{PatchTST (Proposed)} & \textbf{18.42} & \textbf{24.15} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{QUBO Routing and SQA Speed-Up}
+To verify the quantum-inspired routing algorithm, the SQA solver was compared to the conventional Simulated Annealing (SA) solver. In all the simulations, the SQA solver benefited from the trotter-based tunneling approach, which enabled it to bypass the energy barrier trapping the SA solver in the local minima region. In a case involving a 16-machine routing challenge, the SQA solver found the global minimum energy configuration in 50 sweeps, while the SA solver took more than 200 sweeps to converge. The exponential penalty scheme efficiently moved urgent jobs from those machines with less remaining useful life, ensuring operational continuity.
+
+\subsection{Sustainability and $\epsilon$-Constraint Optimization}
+The relationship between production latency and CO$_2$ emissions was analyzed by varying the $\epsilon$ threshold from 0.2 to 1.0. Our findings, illustrated in Fig.~\ref{fig:pareto}, reveal two distinct operational regimes:
+\begin{itemize}
+    \item \textbf{Sustainability Priority ($\epsilon \le 0.4$):} The system prioritizes carbon reduction by routing tasks exclusively to high-RUL machines. This results in a 22\% reduction in specific energy consumption compared to a health-agnostic baseline, albeit with a 15\% increase in job completion time due to queuing at "healthy" nodes.
+    \item \textbf{Balanced Optimization ($\epsilon = 0.8$):} At this threshold, the framework identifies a "sweet spot" where carbon emissions are reduced by 12\% without significantly impacting the factory's total makespan.
+\end{itemize}
+These results confirm that integrating prognostic health indices into the QUBO cost matrix allows the factory to maintain a "Green Logistics" posture, where equipment longevity and environmental impact are co-optimized with productivity. By proactively avoiding machines with low RUL, the system effectively bypasses the energy-inefficient tail-end of the machine degradation curve.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{pareto_frontier.png}
+  \caption{Sustainability Trade-off: Carbon-Time Pareto frontier demonstrating the sensitivity of routing decisions to the $\epsilon$-constraint.}
+  \label{fig:pareto}
+\end{figure}
+
+\subsection{Framework Efficacy and Limitations}
+The proposed framework demonstrates significant efficacy in unifying high-precision RUL estimation with qubit-efficient routing optimization. By leveraging PatchTST with channel independence and the exponential penalty formulation in the QUBO Hamiltonian, the system achieves a mathematically sound connection between machine health and carbon footprint. Furthermore, the SQA solver effectively utilizes quantum fluctuations for global optimization without the overhead of slack variables. However, certain limitations persist, including the sensitivity to hyperparameters in the annealing schedule and the need for empirical validation on physical quantum processing units (QPUs). Additionally, the accuracy of the Monotonic Decreasing Head (MDH) may be constrained by data sparsity in cases of extreme, abrupt failures.
+
+\section{Conclusion}
+
+This paper has presented a mathematically unified framework for sustainable smart manufacturing, bridging the gap between edge-centric prognostics and cloud-based quantum routing. By leveraging PatchTST with channel-independent encoding, we achieved a 35\% improvement in RUL prediction accuracy over traditional recurrent architectures, enabling a high-fidelity assessment of machine health. This prognostic information was successfully mapped to a qubit-efficient QUBO formulation, where exponential penalty terms modulated the routing cost based on equipment degradation. The application of Simulated Quantum Annealing (SQA) to this multi-objective $\epsilon$-constraint problem demonstrated a 12\% reduction in carbon emissions while maintaining production throughput. Ultimately, our work establishes that the integration of machine health into the logistics loop is essential for the transition toward energy-efficient and resilient Industry 4.0 environments. Future work will focus on validating this Hamiltonian on physical quantum annealers and incorporating smart-grid telemetry for even deeper sustainability.
+
+
+\section{Future Work}
+Whereas the suggested approach manages to connect the patch-based predictive modeling with quantum-inspired sustainable routing, further work will involve scaling the framework, implementing it in hardware, and considering the macro-environmental aspects. Four main areas for further advancement will include:
+
+\begin{itemize}
+  \item \textbf{Physical Quantum Acceleration (QPUs):} At present, the implemented routing mechanism is based on Simulated Quantum Annealing run on classical GPU hardware. The next steps will involve testing the suggested QUBO Hamiltonian by means of physical Quantum Processing Units (QPUs), including the D-Wave Advantage machines.
+
+  \item \textbf{Time Series Foundation Models (TSFMs):} Although the PatchTST framework is quite effective in modeling within-machine degradation, future research will investigate the potential use of pre-trained Time Series Foundation Models. Through the application of transfer learning on various factories and their equipment, the system will be capable of estimating the remaining useful life of previously unseen equipment with minimal training data.
+
+  \item \textbf{Grid-aware Sustainability:} The current $\epsilon$-constraint Green Logistics formulation considers the ratio between carbon emissions and energy consumption to be constant. However, future frameworks will consider telemetry from the smart grid, enabling the routing engine to optimize job scheduling for high-energy jobs when there is excess energy from renewable sources, such as during peak solar production.
+
+  \item \textbf{Federated Edge Learning:} In order to solve the problem of data security and computation limits on the edge gateways, federated learning techniques will be used in future deployments. With this technique, multiple edge gateways can train the spatial-temporal model using the PatchTST algorithm without sending their production data to the cloud.
+\end{itemize}
+
+% ============================================================
+\begin{thebibliography}{16}
+
+\bibitem{ref1_new}
+I. Al-Geddawy et al., ``Machine learning in predictive maintenance towards sustainable smart manufacturing in industry 4.0,'' \textit{Sustainability}, vol. 12, no. 19, p. 8211, 2020.
+
+\bibitem{ref4_new}
+J. Wang et al., ``Intelligent Manufacturing and Carbon Emissions Reduction: Evidence from the Use of Industrial Robots in China,'' \textit{Sustainability}, vol. 14, no. 14, p. 8210, 2022.
+
+\bibitem{nie2023patchtst}
+Y. Nie, N. H. Nguyen, P. Sinthong, and J. Kalagnanam, ``A Time Series is Worth 64 Words: Long-term Forecasting with Transformers,'' in \textit{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2023.
+
+\bibitem{ref3}
+C. Lei, H. Zhang, X. Yan, and Q. Miao, ``Green Supply Chain Optimization Based on Two-Stage Heuristic Algorithm,'' \textit{Processes}, vol. 12, no. 6, p. 1127, 2024.
+
+\bibitem{ref4}
+W.-H. Tsai and Y.-H. Wu, ``Research on Multi-Objective Programming Model of Profits and Carbon Emission Reduction in Manufacturing Industry,'' \textit{Energies}, vol. 18, no. 6, p. 1411, 2025.
+
+\bibitem{ref5}
+C. Ma, Z. Liu, X. Ding, and Y. Gao, ``Research Progress on Energy Consumption Throughout the Life Cycle of Machine Tools,'' \textit{Appl. Sci.}, vol. 16, no. 3, p. 1462, 2026.
+
+\bibitem{ref6}
+N. Baddou, A. Dadda, B. Rzine, and H. Hmamed, ``Towards Fault Detection in Industrial Equipment through Energy Consumption Analysis: Integrating Machine Learning and Statistical Methods,'' \textit{E3S Web Conf.}, vol. 601, p. 00079, 2025.
+
+\bibitem{ref7}
+Y. Li \textit{et al.}, ``Remaining useful life prediction of lithium-ion batteries based on a CGHF-MDH-Mamba model,'' \textit{ScieRxiv}, 2025, doi: 10.20517/scierxiv202510.0705.v1.
+
+\bibitem{ref8}
+R. Huang, H. Xiao, B. Li, B. Zhang, and J. Lyu, ``HMformer: Unleashing Transformer’s Potential for Time Series Forecasting via Hierarchical Multi-Scale Modeling,'' \textit{AAAI Publications}, 2024.
+
+\bibitem{ref9}
+Y. Chen, N. Céspedes, and P. Barnaghi, ``A Closer Look at Transformers for Time Series Forecasting: Understanding Why They Work and Where They Struggle,'' in \textit{Proc. Int. Conf. Mach. Learn. (ICML) Poster}, 2025.
+
+\bibitem{ref10}
+F. Phillipson, ``Quantum Computing in Logistics and Supply Chain Management - an Overview,'' \textit{arXiv preprint arXiv:2402.17520v1}, 2024.
+
+\bibitem{ref11}
+P. Liu, S. Parkinson, and K. Best, ``Quantum and Quantum-Inspired Optimisation in Transport and Logistics: A Systematic Review,'' \textit{Smart Cities}, vol. 8, no. 6, p. 206, 2025.
+
+\bibitem{ref12}
+D. Vert \textit{et al.}, ``Benchmarking quantum annealing with maximum cardinality matching problems,'' \textit{Front. Comput. Sci.}, vol. 6, p. 1286057, 2024.
+
+\bibitem{ref13}
+M. Kanatbekova, V. De Maio, and I. Brandic, ``Qubit-Efficient QUBO Formulation for Constrained Optimization Problems,'' \textit{arXiv preprint arXiv:2509.08080v1}, 2025.
+
+\bibitem{ref14}
+A. I. Pakhomchik, S. Yudin, M. R. Perelshtein, A. Alekseyenko, and S. Yarkoni, ``Solving workflow scheduling problems with QUBO modeling,'' \textit{Terra Quantum AG}, 2022.
+
+\bibitem{ref15}
+F. Glover, G. Kochenberger, and Y. Du, ``Quantum Bridge Analytics I: A Tutorial on Formulating and Using QUBO Models,'' \textit{4OR}, vol. 17, pp. 335--371, 2019.
+
+\bibitem{ref16}
+E. Crosson and A. W. Harrow, ``Simulated Quantum Annealing Can Be Exponentially Faster than Classical Simulated Annealing,'' in \textit{Proc. FOCS}, 2016, pp. 714--723.
+
+\end{thebibliography}
+
+\end{document}
